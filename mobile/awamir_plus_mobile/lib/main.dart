@@ -1,0 +1,365 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+
+import 'controllers/auth_controller.dart';
+import 'screens/accounting_screen.dart';
+import 'screens/cashier_closures_screen.dart';
+import 'screens/daily_cash_screen.dart';
+import 'screens/distribution_screen.dart';
+import 'screens/driver_orders_screen.dart';
+import 'screens/home_screen.dart';
+import 'screens/login_screen.dart';
+import 'screens/new_order_screen.dart';
+import 'screens/notifications_screen.dart';
+import 'screens/orders_screen.dart';
+import 'screens/pickup_orders_screen.dart';
+import 'screens/production_screen.dart';
+import 'screens/role_feature_screen.dart';
+import 'screens/supervisor_approvals_screen.dart';
+import 'controllers/app_controller.dart';
+import 'core/permissions/access_control.dart';
+import 'core/theme/app_theme.dart';
+import 'models/app_models.dart';
+import 'repositories/auth_repository.dart';
+import 'services/mock_service.dart';
+import 'widgets/state_views.dart';
+
+void main() {
+  runApp(const AwamirPlusApp());
+}
+
+class AwamirPlusApp extends StatelessWidget {
+  const AwamirPlusApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'أوامر بلس',
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.light,
+      locale: const Locale('ar', 'SA'),
+      supportedLocales: const [Locale('ar', 'SA'), Locale('en', 'US')],
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      builder: (context, child) {
+        return Directionality(
+          textDirection: TextDirection.rtl,
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
+      home: const AuthGate(),
+    );
+  }
+}
+
+class AuthGate extends StatefulWidget {
+  const AuthGate({super.key});
+
+  @override
+  State<AuthGate> createState() => _AuthGateState();
+}
+
+class _AuthGateState extends State<AuthGate> {
+  late final MockService _mockService = MockService();
+  late final AuthController _authController = AuthController(
+    authRepository: AuthRepository(mockService: _mockService),
+  );
+
+  @override
+  void dispose() {
+    _authController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _authController,
+      builder: (context, _) {
+        if (!_authController.hasCheckedSession && _authController.isLoading) {
+          return const Scaffold(body: LoadingStateView());
+        }
+
+        final user = _authController.currentUser;
+        if (user == null) {
+          return LoginScreen(controller: _authController);
+        }
+
+        return HomeShell(
+          key: ValueKey(user.id),
+          currentUser: user,
+          mockService: _mockService,
+          onLogout: () => _authController.logout(),
+        );
+      },
+    );
+  }
+}
+
+class HomeShell extends StatefulWidget {
+  const HomeShell({
+    super.key,
+    required this.currentUser,
+    required this.mockService,
+    required this.onLogout,
+  });
+
+  final AppUser currentUser;
+  final MockService mockService;
+  final VoidCallback onLogout;
+
+  @override
+  State<HomeShell> createState() => _HomeShellState();
+}
+
+class _HomeShellState extends State<HomeShell> {
+  late final AppController _controller = AppController(
+    currentUser: widget.currentUser,
+    mockService: widget.mockService,
+  );
+  AppFeature _selectedFeature = AppFeature.home;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, _) {
+          if (_controller.isLoading) {
+            return const LoadingStateView();
+          }
+          if (_controller.hasError) {
+            return ErrorStateView(
+              message: _controller.errorMessage,
+              onRetry: _controller.loadInitialData,
+            );
+          }
+          if (_controller.isEmpty) {
+            return EmptyStateView(
+              message: _controller.appState.message ?? 'لا توجد بيانات حالياً',
+            );
+          }
+          return _buildPage();
+        },
+      ),
+      bottomNavigationBar: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, _) {
+          return _BottomNav(
+            selectedFeature: _selectedFeature,
+            features: _controller.navigationFeatures,
+            notificationCount: _controller.unreadNotifications,
+            onChanged: _openFeature,
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildPage() {
+    if (!_controller.canAccess(_selectedFeature)) {
+      return const AccessDeniedStateView();
+    }
+
+    switch (_selectedFeature) {
+      case AppFeature.home:
+        return HomeScreen(
+          controller: _controller,
+          onOpenFeature: _openFeature,
+          onLogout: widget.onLogout,
+        );
+      case AppFeature.branchOrders:
+        return OrdersScreen(controller: _controller);
+      case AppFeature.branchApprovals:
+        return SupervisorApprovalsScreen(controller: _controller);
+      case AppFeature.distribution:
+      case AppFeature.approvedOrders:
+        return DistributionScreen(controller: _controller);
+      case AppFeature.manufacturingOrders:
+      case AppFeature.productionInProgress:
+      case AppFeature.readyForPickupDelivery:
+        return ProductionScreen(controller: _controller);
+      case AppFeature.assignedDeliveries:
+      case AppFeature.onTheWay:
+        return DriverOrdersScreen(controller: _controller);
+      case AppFeature.createOrder:
+        return NewOrderScreen(
+          controller: _controller,
+          onFinished: () => _openFeature(AppFeature.branchOrders),
+        );
+      case AppFeature.dailyCashClosure:
+        return DailyCashScreen(controller: _controller, showBack: false);
+      case AppFeature.employeeCashClosures:
+      case AppFeature.receiveCashClosure:
+      case AppFeature.cashDifferences:
+        return CashierClosuresScreen(controller: _controller);
+      case AppFeature.deliveredOrders:
+        return _controller.currentUser.role == UserRole.driver
+            ? DriverOrdersScreen(controller: _controller)
+            : PickupOrdersScreen(controller: _controller);
+      case AppFeature.notifications:
+        return NotificationsScreen(controller: _controller);
+      case AppFeature.payments:
+      case AppFeature.invoices:
+      case AppFeature.paymentEntry:
+        return AccountingScreen(controller: _controller);
+      default:
+        return RoleFeatureScreen(
+          user: _controller.currentUser,
+          feature: _selectedFeature,
+        );
+    }
+  }
+
+  void _openFeature(AppFeature feature) {
+    if (!_controller.canAccess(feature)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('ليس لديك صلاحية للوصول إلى هذه الصفحة')),
+      );
+      return;
+    }
+
+    setState(() => _selectedFeature = feature);
+  }
+}
+
+class _BottomNav extends StatelessWidget {
+  const _BottomNav({
+    required this.selectedFeature,
+    required this.features,
+    required this.notificationCount,
+    required this.onChanged,
+  });
+
+  final AppFeature selectedFeature;
+  final List<AppFeature> features;
+  final int notificationCount;
+  final ValueChanged<AppFeature> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final items = features;
+
+    return SafeArea(
+      top: false,
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppColors.white,
+          border: const Border(top: BorderSide(color: AppColors.creamDark)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 15,
+              offset: const Offset(0, -2),
+            ),
+          ],
+        ),
+        child: Row(
+          children: List.generate(items.length, (index) {
+            final item = items[index];
+            final selected = selectedFeature == item;
+            final badge = item == AppFeature.notifications
+                ? notificationCount
+                : 0;
+            return Expanded(
+              child: InkWell(
+                onTap: () => onChanged(item),
+                child: SizedBox(
+                  height: 62,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      if (selected)
+                        const Positioned(
+                          top: 0,
+                          child: SizedBox(
+                            width: 30,
+                            height: 3,
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                color: AppColors.gold,
+                                borderRadius: BorderRadius.vertical(
+                                  bottom: Radius.circular(3),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              Icon(
+                                item.icon,
+                                color: selected
+                                    ? AppColors.navy
+                                    : AppColors.textMuted,
+                                size: 24,
+                              ),
+                              if (badge > 0)
+                                Positioned(
+                                  top: -7,
+                                  right: -10,
+                                  child: Container(
+                                    constraints: const BoxConstraints(
+                                      minWidth: 16,
+                                      minHeight: 16,
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 4,
+                                    ),
+                                    decoration: const BoxDecoration(
+                                      color: AppColors.red,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Center(
+                                      child: Text(
+                                        '$badge',
+                                        style: const TextStyle(
+                                          color: AppColors.white,
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.w900,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            item.label,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: selected
+                                  ? AppColors.navy
+                                  : AppColors.textMuted,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }),
+        ),
+      ),
+    );
+  }
+}

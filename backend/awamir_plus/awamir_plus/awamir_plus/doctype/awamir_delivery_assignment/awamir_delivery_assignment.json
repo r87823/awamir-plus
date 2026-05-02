@@ -1,0 +1,29 @@
+{
+  "doctype": "DocType",
+  "name": "Awamir Delivery Assignment",
+  "module": "Awamir Plus",
+  "custom": 0,
+  "allow_rename": 0,
+  "track_changes": 1,
+  "field_order": ["order", "driver", "assigned_by", "assigned_at", "status", "picked_up_at", "out_for_delivery_at", "delivered_at", "failed_at", "failure_reason", "proof_image", "driver_notes"],
+  "fields": [
+    {"fieldname": "order", "label": "Order", "fieldtype": "Link", "options": "Awamir Order Request", "reqd": 1, "in_list_view": 1},
+    {"fieldname": "driver", "label": "Driver", "fieldtype": "Link", "options": "User", "reqd": 1, "in_list_view": 1},
+    {"fieldname": "assigned_by", "label": "Assigned By", "fieldtype": "Link", "options": "User", "reqd": 1},
+    {"fieldname": "assigned_at", "label": "Assigned At", "fieldtype": "Datetime", "reqd": 1},
+    {"fieldname": "status", "label": "Status", "fieldtype": "Select", "options": "Assigned To Driver\nDriver Picked Up\nOut For Delivery\nDelivered\nDelivery Failed", "default": "Assigned To Driver", "reqd": 1, "in_list_view": 1},
+    {"fieldname": "picked_up_at", "label": "Picked Up At", "fieldtype": "Datetime"},
+    {"fieldname": "out_for_delivery_at", "label": "Out For Delivery At", "fieldtype": "Datetime"},
+    {"fieldname": "delivered_at", "label": "Delivered At", "fieldtype": "Datetime"},
+    {"fieldname": "failed_at", "label": "Failed At", "fieldtype": "Datetime"},
+    {"fieldname": "failure_reason", "label": "Failure Reason", "fieldtype": "Small Text"},
+    {"fieldname": "proof_image", "label": "Proof Image", "fieldtype": "Attach Image"},
+    {"fieldname": "driver_notes", "label": "Driver Notes", "fieldtype": "Small Text"}
+  ],
+  "permissions": [
+    {"role": "Awamir Distribution Manager", "read": 1, "write": 1, "create": 1, "permlevel": 0},
+    {"role": "Awamir Driver", "read": 1, "write": 1, "permlevel": 0},
+    {"role": "Awamir System Admin", "read": 1, "write": 1, "create": 1, "delete": 1, "permlevel": 0}
+  ]
+}
+

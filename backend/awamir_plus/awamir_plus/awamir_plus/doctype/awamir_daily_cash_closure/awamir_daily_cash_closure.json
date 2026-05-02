@@ -1,0 +1,48 @@
+{
+  "doctype": "DocType",
+  "name": "Awamir Daily Cash Closure",
+  "module": "Awamir Plus",
+  "custom": 0,
+  "allow_rename": 0,
+  "track_changes": 1,
+  "autoname": "field:closure_number",
+  "title_field": "closure_number",
+  "sort_field": "date",
+  "sort_order": "DESC",
+  "field_order": ["closure_number", "closure_type", "user", "branch", "date", "totals_section", "total_cash", "total_card", "total_transfer", "total_other", "total_amount", "actuals_section", "actual_cash", "actual_card", "actual_transfer", "actual_other", "actual_total", "difference_amount", "difference_reason", "status", "cashier", "cashier_notes", "submitted_at", "accepted_at", "closed_at"],
+  "fields": [
+    {"fieldname": "closure_number", "label": "Closure Number", "fieldtype": "Data", "read_only": 1, "unique": 1},
+    {"fieldname": "closure_type", "label": "Closure Type", "fieldtype": "Select", "options": "branch_employee\ndriver", "reqd": 1, "in_list_view": 1},
+    {"fieldname": "user", "label": "User", "fieldtype": "Link", "options": "User", "reqd": 1, "in_list_view": 1},
+    {"fieldname": "branch", "label": "Branch", "fieldtype": "Link", "options": "Branch", "in_list_view": 1},
+    {"fieldname": "date", "label": "Date", "fieldtype": "Date", "reqd": 1, "in_list_view": 1},
+    {"fieldname": "totals_section", "label": "Recorded Totals", "fieldtype": "Section Break"},
+    {"fieldname": "total_cash", "label": "Total Cash", "fieldtype": "Currency", "default": 0},
+    {"fieldname": "total_card", "label": "Total Card", "fieldtype": "Currency", "default": 0},
+    {"fieldname": "total_transfer", "label": "Total Transfer", "fieldtype": "Currency", "default": 0},
+    {"fieldname": "total_other", "label": "Total Other", "fieldtype": "Currency", "default": 0},
+    {"fieldname": "total_amount", "label": "Total Amount", "fieldtype": "Currency", "read_only": 1, "in_list_view": 1},
+    {"fieldname": "actuals_section", "label": "Actual Totals", "fieldtype": "Section Break"},
+    {"fieldname": "actual_cash", "label": "Actual Cash", "fieldtype": "Currency", "default": 0},
+    {"fieldname": "actual_card", "label": "Actual Card", "fieldtype": "Currency", "default": 0},
+    {"fieldname": "actual_transfer", "label": "Actual Transfer", "fieldtype": "Currency", "default": 0},
+    {"fieldname": "actual_other", "label": "Actual Other", "fieldtype": "Currency", "default": 0},
+    {"fieldname": "actual_total", "label": "Actual Total", "fieldtype": "Currency", "read_only": 1},
+    {"fieldname": "difference_amount", "label": "Difference Amount", "fieldtype": "Currency", "read_only": 1},
+    {"fieldname": "difference_reason", "label": "Difference Reason", "fieldtype": "Small Text"},
+    {"fieldname": "status", "label": "Status", "fieldtype": "Select", "options": "Open\nSubmitted To Cashier\nReturned For Review\nAccepted\nClosed\nHas Difference", "default": "Open", "reqd": 1, "in_list_view": 1},
+    {"fieldname": "cashier", "label": "Cashier", "fieldtype": "Link", "options": "User"},
+    {"fieldname": "cashier_notes", "label": "Cashier Notes", "fieldtype": "Small Text"},
+    {"fieldname": "submitted_at", "label": "Submitted At", "fieldtype": "Datetime", "read_only": 1},
+    {"fieldname": "accepted_at", "label": "Accepted At", "fieldtype": "Datetime", "read_only": 1},
+    {"fieldname": "closed_at", "label": "Closed At", "fieldtype": "Datetime", "read_only": 1}
+  ],
+  "permissions": [
+    {"role": "Awamir Branch Employee", "read": 1, "write": 1, "create": 1, "permlevel": 0},
+    {"role": "Awamir Driver", "read": 1, "write": 1, "create": 1, "permlevel": 0},
+    {"role": "Awamir Cashier", "read": 1, "write": 1, "permlevel": 0},
+    {"role": "Awamir Accountant", "read": 1, "permlevel": 0},
+    {"role": "Awamir System Admin", "read": 1, "write": 1, "create": 1, "delete": 1, "permlevel": 0}
+  ]
+}
+

@@ -1,0 +1,29 @@
+{
+  "doctype": "DocType",
+  "name": "Awamir Order Status Log",
+  "module": "Awamir Plus",
+  "custom": 0,
+  "allow_rename": 0,
+  "track_changes": 1,
+  "sort_field": "changed_at",
+  "sort_order": "ASC",
+  "field_order": ["order", "old_status", "new_status", "changed_by", "changed_at", "notes"],
+  "fields": [
+    {"fieldname": "order", "label": "Order", "fieldtype": "Link", "options": "Awamir Order Request", "reqd": 1, "in_list_view": 1},
+    {"fieldname": "old_status", "label": "Old Status", "fieldtype": "Data", "in_list_view": 1},
+    {"fieldname": "new_status", "label": "New Status", "fieldtype": "Data", "reqd": 1, "in_list_view": 1},
+    {"fieldname": "changed_by", "label": "Changed By", "fieldtype": "Link", "options": "User", "reqd": 1},
+    {"fieldname": "changed_at", "label": "Changed At", "fieldtype": "Datetime", "reqd": 1},
+    {"fieldname": "notes", "label": "Notes", "fieldtype": "Small Text"}
+  ],
+  "permissions": [
+    {"role": "Awamir Branch Employee", "read": 1, "permlevel": 0},
+    {"role": "Awamir Branch Supervisor", "read": 1, "permlevel": 0},
+    {"role": "Awamir Distribution Manager", "read": 1, "permlevel": 0},
+    {"role": "Awamir Production User", "read": 1, "permlevel": 0},
+    {"role": "Awamir Driver", "read": 1, "permlevel": 0},
+    {"role": "Awamir Accountant", "read": 1, "permlevel": 0},
+    {"role": "Awamir System Admin", "read": 1, "write": 1, "create": 1, "delete": 1, "permlevel": 0}
+  ]
+}
+

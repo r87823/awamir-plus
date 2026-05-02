@@ -1,0 +1,6 @@
+include README.md
+include license.txt
+recursive-include awamir_plus *.json
+recursive-include awamir_plus *.py
+recursive-include awamir_plus *.txt
+

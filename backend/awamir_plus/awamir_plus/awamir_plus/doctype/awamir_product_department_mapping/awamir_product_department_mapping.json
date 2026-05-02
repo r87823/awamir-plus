@@ -1,0 +1,20 @@
+{
+  "doctype": "DocType",
+  "name": "Awamir Product Department Mapping",
+  "module": "Awamir Plus",
+  "custom": 0,
+  "allow_rename": 1,
+  "field_order": ["item_group", "item_code", "production_department", "requires_work_order", "is_active"],
+  "fields": [
+    {"fieldname": "item_group", "label": "Item Group", "fieldtype": "Link", "options": "Item Group", "in_list_view": 1},
+    {"fieldname": "item_code", "label": "Item Code", "fieldtype": "Link", "options": "Item", "in_list_view": 1},
+    {"fieldname": "production_department", "label": "Production Department", "fieldtype": "Link", "options": "Awamir Production Department", "reqd": 1, "in_list_view": 1},
+    {"fieldname": "requires_work_order", "label": "Requires Work Order", "fieldtype": "Check", "default": 1},
+    {"fieldname": "is_active", "label": "Is Active", "fieldtype": "Check", "default": 1}
+  ],
+  "permissions": [
+    {"role": "Awamir Distribution Manager", "read": 1, "write": 1, "create": 1, "permlevel": 0},
+    {"role": "Awamir System Admin", "read": 1, "write": 1, "create": 1, "delete": 1, "permlevel": 0}
+  ]
+}
+

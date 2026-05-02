@@ -1,0 +1,29 @@
+[
+  {
+    "doctype": "Custom Field",
+    "dt": "Address",
+    "fieldname": "custom_google_maps_url",
+    "fieldtype": "Data",
+    "insert_after": "address_line2",
+    "label": "Google Maps URL",
+    "name": "Address-custom_google_maps_url"
+  },
+  {
+    "doctype": "Custom Field",
+    "dt": "Address",
+    "fieldname": "custom_latitude",
+    "fieldtype": "Float",
+    "insert_after": "custom_google_maps_url",
+    "label": "Latitude",
+    "name": "Address-custom_latitude"
+  },
+  {
+    "doctype": "Custom Field",
+    "dt": "Address",
+    "fieldname": "custom_longitude",
+    "fieldtype": "Float",
+    "insert_after": "custom_latitude",
+    "label": "Longitude",
+    "name": "Address-custom_longitude"
+  }
+]

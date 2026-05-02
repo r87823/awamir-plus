@@ -1,0 +1,26 @@
+{
+  "doctype": "DocType",
+  "name": "Awamir Cash Closure Log",
+  "module": "Awamir Plus",
+  "custom": 0,
+  "allow_rename": 0,
+  "sort_field": "created_at",
+  "sort_order": "ASC",
+  "field_order": ["closure", "old_status", "new_status", "changed_by", "notes", "created_at"],
+  "fields": [
+    {"fieldname": "closure", "label": "Closure", "fieldtype": "Link", "options": "Awamir Daily Cash Closure", "reqd": 1, "in_list_view": 1},
+    {"fieldname": "old_status", "label": "Old Status", "fieldtype": "Data"},
+    {"fieldname": "new_status", "label": "New Status", "fieldtype": "Data", "reqd": 1, "in_list_view": 1},
+    {"fieldname": "changed_by", "label": "Changed By", "fieldtype": "Link", "options": "User", "reqd": 1},
+    {"fieldname": "notes", "label": "Notes", "fieldtype": "Small Text"},
+    {"fieldname": "created_at", "label": "Created At", "fieldtype": "Datetime", "reqd": 1}
+  ],
+  "permissions": [
+    {"role": "Awamir Branch Employee", "read": 1, "permlevel": 0},
+    {"role": "Awamir Driver", "read": 1, "permlevel": 0},
+    {"role": "Awamir Cashier", "read": 1, "create": 1, "permlevel": 0},
+    {"role": "Awamir Accountant", "read": 1, "permlevel": 0},
+    {"role": "Awamir System Admin", "read": 1, "write": 1, "create": 1, "delete": 1, "permlevel": 0}
+  ]
+}
+

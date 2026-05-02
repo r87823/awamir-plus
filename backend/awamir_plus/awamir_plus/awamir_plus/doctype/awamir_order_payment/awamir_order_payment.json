@@ -1,0 +1,33 @@
+{
+  "doctype": "DocType",
+  "name": "Awamir Order Payment",
+  "module": "Awamir Plus",
+  "custom": 0,
+  "allow_rename": 0,
+  "track_changes": 1,
+  "sort_field": "created_at",
+  "sort_order": "DESC",
+  "field_order": ["order", "customer", "amount", "payment_method", "payment_reference", "receipt_attachment", "received_by_user", "received_by_role", "cash_closure", "erpnext_payment_entry", "status", "created_at"],
+  "fields": [
+    {"fieldname": "order", "label": "Order", "fieldtype": "Link", "options": "Awamir Order Request", "reqd": 1, "in_list_view": 1},
+    {"fieldname": "customer", "label": "Customer", "fieldtype": "Link", "options": "Customer"},
+    {"fieldname": "amount", "label": "Amount", "fieldtype": "Currency", "reqd": 1, "in_list_view": 1},
+    {"fieldname": "payment_method", "label": "Payment Method", "fieldtype": "Select", "options": "Cash\nCard\nTransfer\nOther", "reqd": 1, "in_list_view": 1},
+    {"fieldname": "payment_reference", "label": "Payment Reference", "fieldtype": "Data"},
+    {"fieldname": "receipt_attachment", "label": "Receipt Attachment", "fieldtype": "Attach"},
+    {"fieldname": "received_by_user", "label": "Received By User", "fieldtype": "Link", "options": "User", "reqd": 1},
+    {"fieldname": "received_by_role", "label": "Received By Role", "fieldtype": "Select", "options": "branch_employee\ndriver", "reqd": 1},
+    {"fieldname": "cash_closure", "label": "Cash Closure", "fieldtype": "Link", "options": "Awamir Daily Cash Closure"},
+    {"fieldname": "erpnext_payment_entry", "label": "ERPNext Payment Entry", "fieldtype": "Link", "options": "Payment Entry", "read_only": 1},
+    {"fieldname": "status", "label": "Status", "fieldtype": "Select", "options": "Recorded By Employee\nIn Daily Closure\nSubmitted To Cashier\nReturned For Review\nCashier Accepted\nReady For ERPNext Posting\nPosted To ERPNext\nLinked To Invoice", "default": "Recorded By Employee", "reqd": 1, "in_list_view": 1},
+    {"fieldname": "created_at", "label": "Created At", "fieldtype": "Datetime", "read_only": 1}
+  ],
+  "permissions": [
+    {"role": "Awamir Branch Employee", "read": 1, "write": 1, "create": 1, "permlevel": 0},
+    {"role": "Awamir Driver", "read": 1, "write": 1, "create": 1, "permlevel": 0},
+    {"role": "Awamir Cashier", "read": 1, "write": 1, "permlevel": 0},
+    {"role": "Awamir Accountant", "read": 1, "write": 1, "permlevel": 0},
+    {"role": "Awamir System Admin", "read": 1, "write": 1, "create": 1, "delete": 1, "permlevel": 0}
+  ]
+}
+

@@ -1,0 +1,51 @@
+[
+  {
+    "doctype": "Role",
+    "role_name": "Awamir Branch Employee",
+    "desk_access": 1,
+    "disabled": 0
+  },
+  {
+    "doctype": "Role",
+    "role_name": "Awamir Branch Supervisor",
+    "desk_access": 1,
+    "disabled": 0
+  },
+  {
+    "doctype": "Role",
+    "role_name": "Awamir Distribution Manager",
+    "desk_access": 1,
+    "disabled": 0
+  },
+  {
+    "doctype": "Role",
+    "role_name": "Awamir Production User",
+    "desk_access": 1,
+    "disabled": 0
+  },
+  {
+    "doctype": "Role",
+    "role_name": "Awamir Driver",
+    "desk_access": 1,
+    "disabled": 0
+  },
+  {
+    "doctype": "Role",
+    "role_name": "Awamir Cashier",
+    "desk_access": 1,
+    "disabled": 0
+  },
+  {
+    "doctype": "Role",
+    "role_name": "Awamir Accountant",
+    "desk_access": 1,
+    "disabled": 0
+  },
+  {
+    "doctype": "Role",
+    "role_name": "Awamir System Admin",
+    "desk_access": 1,
+    "disabled": 0
+  }
+]
+

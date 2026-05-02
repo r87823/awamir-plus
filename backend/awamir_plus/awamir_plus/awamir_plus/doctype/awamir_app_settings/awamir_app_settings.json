@@ -1,0 +1,26 @@
+{
+  "doctype": "DocType",
+  "name": "Awamir App Settings",
+  "module": "Awamir Plus",
+  "issingle": 1,
+  "custom": 0,
+  "field_order": ["default_company", "default_price_list", "default_warehouse", "default_currency", "workflow_section", "require_deposit_before_production", "create_sales_order_on_approval", "create_work_order_on_distribution", "create_invoice_on_delivery", "allow_delivery_without_full_payment", "enable_driver_cash_closure"],
+  "fields": [
+    {"fieldname": "default_company", "label": "Default Company", "fieldtype": "Link", "options": "Company"},
+    {"fieldname": "default_price_list", "label": "Default Price List", "fieldtype": "Link", "options": "Price List"},
+    {"fieldname": "default_warehouse", "label": "Default Warehouse", "fieldtype": "Link", "options": "Warehouse"},
+    {"fieldname": "default_currency", "label": "Default Currency", "fieldtype": "Link", "options": "Currency", "default": "SAR"},
+    {"fieldname": "workflow_section", "label": "Workflow Settings", "fieldtype": "Section Break"},
+    {"fieldname": "require_deposit_before_production", "label": "Require Deposit Before Production", "fieldtype": "Check", "default": 0},
+    {"fieldname": "create_sales_order_on_approval", "label": "Create Sales Order On Approval", "fieldtype": "Check", "default": 0},
+    {"fieldname": "create_work_order_on_distribution", "label": "Create Work Order On Distribution", "fieldtype": "Check", "default": 0},
+    {"fieldname": "create_invoice_on_delivery", "label": "Create Invoice On Delivery", "fieldtype": "Check", "default": 0},
+    {"fieldname": "allow_delivery_without_full_payment", "label": "Allow Delivery Without Full Payment", "fieldtype": "Check", "default": 0},
+    {"fieldname": "enable_driver_cash_closure", "label": "Enable Driver Cash Closure", "fieldtype": "Check", "default": 1}
+  ],
+  "permissions": [
+    {"role": "Awamir System Admin", "read": 1, "write": 1, "create": 1, "delete": 1, "permlevel": 0},
+    {"role": "System Manager", "read": 1, "write": 1, "create": 1, "delete": 1, "permlevel": 0}
+  ]
+}
+

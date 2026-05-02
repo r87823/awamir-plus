@@ -1,0 +1,30 @@
+{
+  "doctype": "DocType",
+  "name": "Awamir Notification",
+  "module": "Awamir Plus",
+  "custom": 0,
+  "allow_rename": 0,
+  "sort_field": "created_at",
+  "sort_order": "DESC",
+  "field_order": ["user", "title", "message", "related_order", "notification_type", "is_read", "created_at"],
+  "fields": [
+    {"fieldname": "user", "label": "User", "fieldtype": "Link", "options": "User", "reqd": 1, "in_list_view": 1},
+    {"fieldname": "title", "label": "Title", "fieldtype": "Data", "reqd": 1, "in_list_view": 1},
+    {"fieldname": "message", "label": "Message", "fieldtype": "Small Text", "reqd": 1},
+    {"fieldname": "related_order", "label": "Related Order", "fieldtype": "Link", "options": "Awamir Order Request"},
+    {"fieldname": "notification_type", "label": "Notification Type", "fieldtype": "Data", "default": "general", "in_list_view": 1},
+    {"fieldname": "is_read", "label": "Is Read", "fieldtype": "Check", "default": 0, "in_list_view": 1},
+    {"fieldname": "created_at", "label": "Created At", "fieldtype": "Datetime", "read_only": 1}
+  ],
+  "permissions": [
+    {"role": "Awamir Branch Employee", "read": 1, "write": 1, "permlevel": 0},
+    {"role": "Awamir Branch Supervisor", "read": 1, "write": 1, "permlevel": 0},
+    {"role": "Awamir Distribution Manager", "read": 1, "write": 1, "permlevel": 0},
+    {"role": "Awamir Production User", "read": 1, "write": 1, "permlevel": 0},
+    {"role": "Awamir Driver", "read": 1, "write": 1, "permlevel": 0},
+    {"role": "Awamir Cashier", "read": 1, "write": 1, "permlevel": 0},
+    {"role": "Awamir Accountant", "read": 1, "write": 1, "permlevel": 0},
+    {"role": "Awamir System Admin", "read": 1, "write": 1, "create": 1, "delete": 1, "permlevel": 0}
+  ]
+}
+
