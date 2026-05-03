@@ -15,6 +15,7 @@ awamir-plus/
   design-reference/
     sales-classic.html       # Visual reference only
   docs/
+    RELEASE_V0_1.md
     API_OVERVIEW.md
     MVP_TEST_SCENARIO.md
     PILOT_TEST_REPORT.md
@@ -67,15 +68,20 @@ Run local Python checks:
 python3 -m compileall backend/awamir_plus/awamir_plus
 ```
 
+## Pilot Release
+
+The current pilot release notes are documented in [Awamir Plus Pilot Release v0.1](docs/RELEASE_V0_1.md).
+
 ## MVP Accounting Notes
 
-Current MVP accounting behavior is intentionally conservative:
+Current pilot accounting behavior is controlled through `Awamir App Settings`:
 
-- Sales Order is created as Draft.
-- Payment Entry is created as Draft.
-- Sales Invoice is created as Draft.
+- Sales Order submit is enabled in the pilot environment.
+- Payment Entry submit is enabled in the pilot environment.
+- Sales Invoice submit is enabled in the pilot environment.
+- Work Order submit is not enabled.
 - Payment allocation is tracked inside Awamir.
-- ERPNext ledger posting is not performed until submit settings are enabled later.
+- ERPNext ledger posting happens only for the submitted ERPNext documents enabled by settings.
 - Work Order requires valid BOM setup in ERPNext.
 - Awamir product categories are filtered using `custom_is_awamir_category` or active Product Department Mapping.
 - No external payment gateway is integrated.
@@ -96,6 +102,7 @@ Real ERPNext demo users are created by the seed script and use the configured de
 
 ## Documentation
 
+- [Pilot Release v0.1](docs/RELEASE_V0_1.md)
 - [API Overview](docs/API_OVERVIEW.md)
 - [MVP Test Scenario](docs/MVP_TEST_SCENARIO.md)
 - [Pilot Test Report](docs/PILOT_TEST_REPORT.md)
