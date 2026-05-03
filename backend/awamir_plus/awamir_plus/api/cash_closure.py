@@ -16,7 +16,7 @@ from awamir_plus.constants import (
     PAYMENT_STATUS_SUBMITTED,
 )
 from awamir_plus.permissions import get_user_branch, is_awamir_admin, require_roles
-from awamir_plus.utils import create_notification, get_cashier_users, make_cash_closure_log, now, to_float
+from awamir_plus.utils import create_notification, get_cashier_users, make_cash_closure_log, now, parse_json, to_float
 
 
 @frappe.whitelist()
@@ -25,7 +25,8 @@ def get_my_daily_cash_closure(closure_type=None, date=None):
     date = date or frappe.utils.today()
     user = frappe.session.user
     if is_awamir_admin() and closure_type is None:
-        return frappe.get_all("Awamir Daily Cash Closure", filters={"date": date}, fields=["*"], order_by="modified desc")
+        closures = frappe.get_all("Awamir Daily Cash Closure", filters={"date": date}, pluck="name", order_by="modified desc")
+        return [_closure_detail(name) for name in closures]
     closure_type = closure_type or ("driver" if "Awamir Driver" in frappe.get_roles() else "branch_employee")
     closure_name = frappe.db.get_value(
         "Awamir Daily Cash Closure",
@@ -33,6 +34,9 @@ def get_my_daily_cash_closure(closure_type=None, date=None):
         "name",
     )
     if closure_name:
+        closure = frappe.get_doc("Awamir Daily Cash Closure", closure_name)
+        _attach_open_payments(closure)
+        _recalculate_totals(closure.name)
         return get_cash_closure_detail(closure_name)
     closure = frappe.get_doc(
         {
@@ -55,11 +59,18 @@ def submit_cash_closure(closure):
     doc = frappe.get_doc("Awamir Daily Cash Closure", closure)
     if not is_awamir_admin() and doc.user != frappe.session.user:
         frappe.throw(_("You can only submit your own cash closure."), frappe.PermissionError)
+    if doc.status == CLOSURE_STATUS_SUBMITTED:
+        return get_cash_closure_detail(doc.name)
+    if doc.status not in (CLOSURE_STATUS_OPEN, CLOSURE_STATUS_RETURNED):
+        frappe.throw(_("Cash closure cannot be submitted in its current status."))
+    _attach_open_payments(doc)
+    _recalculate_totals(doc.name)
+    doc.reload()
     old_status = doc.status
     doc.status = CLOSURE_STATUS_SUBMITTED
     doc.submitted_at = now()
     doc.save(ignore_permissions=True)
-    frappe.db.set_value("Awamir Order Payment", {"cash_closure": doc.name}, "status", PAYMENT_STATUS_SUBMITTED)
+    _set_payment_statuses(doc.name, PAYMENT_STATUS_SUBMITTED)
     make_cash_closure_log(doc.name, old_status, doc.status, _("Submitted to cashier."))
     for cashier in get_cashier_users():
         create_notification(cashier, _("Cash Closure Submitted"), _("Cash closure {0} submitted.").format(doc.closure_number), None, "cash_closure_submitted")
@@ -69,8 +80,20 @@ def submit_cash_closure(closure):
 @frappe.whitelist()
 def get_submitted_cash_closures(filters=None):
     require_roles(["Awamir Cashier", "Awamir System Admin"])
-    query_filters = {"status": ["in", [CLOSURE_STATUS_SUBMITTED, CLOSURE_STATUS_HAS_DIFFERENCE]]}
-    return frappe.get_all("Awamir Daily Cash Closure", filters=query_filters, fields=["*"], order_by="submitted_at desc")
+    data = parse_json(filters, {}) or {}
+    query_filters = {"status": ["in", [CLOSURE_STATUS_SUBMITTED, CLOSURE_STATUS_RETURNED, CLOSURE_STATUS_HAS_DIFFERENCE]]}
+    if data.get("date"):
+        query_filters["date"] = data.get("date")
+    if data.get("branch"):
+        query_filters["branch"] = data.get("branch")
+    if data.get("closure_type"):
+        query_filters["closure_type"] = data.get("closure_type")
+    if data.get("status"):
+        query_filters["status"] = data.get("status")
+    if data.get("user"):
+        query_filters["user"] = data.get("user")
+    closures = frappe.get_all("Awamir Daily Cash Closure", filters=query_filters, pluck="name", order_by="submitted_at desc, modified desc")
+    return [_closure_detail(name, include_logs=False) for name in closures]
 
 
 @frappe.whitelist()
@@ -79,16 +102,18 @@ def get_cash_closure_detail(closure):
     doc = frappe.get_doc("Awamir Daily Cash Closure", closure)
     if not is_awamir_admin() and "Awamir Cashier" not in frappe.get_roles() and "Awamir Accountant" not in frappe.get_roles() and doc.user != frappe.session.user:
         frappe.throw(_("You can only view your own cash closure."), frappe.PermissionError)
-    data = doc.as_dict()
-    data["payments"] = frappe.get_all("Awamir Order Payment", filters={"cash_closure": doc.name}, fields=["*"], order_by="created_at asc")
-    data["logs"] = frappe.get_all("Awamir Cash Closure Log", filters={"closure": doc.name}, fields=["*"], order_by="created_at asc")
-    return data
+    _recalculate_totals(doc.name)
+    return _closure_detail(doc.name)
 
 
 @frappe.whitelist()
 def accept_cash_closure(closure, actual_cash=0, actual_card=0, actual_transfer=0, actual_other=0, difference_reason=None, cashier_notes=None):
     require_roles(["Awamir Cashier", "Awamir System Admin"])
     doc = frappe.get_doc("Awamir Daily Cash Closure", closure)
+    if doc.status not in (CLOSURE_STATUS_SUBMITTED, CLOSURE_STATUS_HAS_DIFFERENCE):
+        frappe.throw(_("Only submitted cash closures can be accepted."))
+    _recalculate_totals(doc.name)
+    doc.reload()
     old_status = doc.status
     doc.actual_cash = to_float(actual_cash)
     doc.actual_card = to_float(actual_card)
@@ -96,7 +121,7 @@ def accept_cash_closure(closure, actual_cash=0, actual_card=0, actual_transfer=0
     doc.actual_other = to_float(actual_other)
     doc.actual_total = doc.actual_cash + doc.actual_card + doc.actual_transfer + doc.actual_other
     doc.difference_amount = doc.actual_total - to_float(doc.total_amount)
-    if doc.difference_amount and not difference_reason:
+    if doc.difference_amount and not (difference_reason or cashier_notes):
         frappe.throw(_("Difference reason is required."))
     doc.difference_reason = difference_reason
     doc.cashier = frappe.session.user
@@ -104,24 +129,33 @@ def accept_cash_closure(closure, actual_cash=0, actual_card=0, actual_transfer=0
     doc.accepted_at = now()
     doc.status = CLOSURE_STATUS_HAS_DIFFERENCE if doc.difference_amount else CLOSURE_STATUS_ACCEPTED
     doc.save(ignore_permissions=True)
-    frappe.db.set_value("Awamir Order Payment", {"cash_closure": doc.name}, "status", PAYMENT_STATUS_READY_FOR_ERP)
+    _set_payment_statuses(doc.name, PAYMENT_STATUS_CASHIER_ACCEPTED)
     make_cash_closure_log(doc.name, old_status, doc.status, cashier_notes or difference_reason)
-    create_notification(doc.user, _("Cash Closure Accepted"), _("Your daily cash closure was accepted."), None, "cash_closure_accepted")
+    create_notification(
+        doc.user,
+        _("Cash Closure Accepted"),
+        _("Your daily cash closure was accepted.").format(doc.closure_number),
+        None,
+        "cash_closure_difference" if doc.status == CLOSURE_STATUS_HAS_DIFFERENCE else "cash_closure_accepted",
+    )
     return get_cash_closure_detail(doc.name)
 
 
 @frappe.whitelist()
 def return_cash_closure(closure, reason):
     require_roles(["Awamir Cashier", "Awamir System Admin"])
+    reason = (reason or "").strip()
     if not reason:
         frappe.throw(_("Return reason is required."))
     doc = frappe.get_doc("Awamir Daily Cash Closure", closure)
+    if doc.status not in (CLOSURE_STATUS_SUBMITTED, CLOSURE_STATUS_HAS_DIFFERENCE):
+        frappe.throw(_("Only submitted cash closures can be returned."))
     old_status = doc.status
     doc.status = CLOSURE_STATUS_RETURNED
     doc.cashier = frappe.session.user
     doc.cashier_notes = reason
     doc.save(ignore_permissions=True)
-    frappe.db.set_value("Awamir Order Payment", {"cash_closure": doc.name}, "status", PAYMENT_STATUS_RETURNED)
+    _set_payment_statuses(doc.name, PAYMENT_STATUS_RETURNED)
     make_cash_closure_log(doc.name, old_status, doc.status, reason)
     create_notification(doc.user, _("Cash Closure Returned"), _("Your daily cash closure was returned: {0}").format(reason), None, "cash_closure_returned")
     return get_cash_closure_detail(doc.name)
@@ -131,13 +165,28 @@ def return_cash_closure(closure, reason):
 def close_cash_closure(closure):
     require_roles(["Awamir Cashier", "Awamir System Admin"])
     doc = frappe.get_doc("Awamir Daily Cash Closure", closure)
+    if doc.status == CLOSURE_STATUS_CLOSED:
+        return get_cash_closure_detail(doc.name)
+    if doc.status not in (CLOSURE_STATUS_ACCEPTED, CLOSURE_STATUS_HAS_DIFFERENCE):
+        frappe.throw(_("Cash closure must be accepted before it can be closed."))
     old_status = doc.status
     doc.status = CLOSURE_STATUS_CLOSED
     doc.closed_at = now()
     doc.save(ignore_permissions=True)
+    _set_payment_statuses(doc.name, PAYMENT_STATUS_READY_FOR_ERP)
     make_cash_closure_log(doc.name, old_status, doc.status, _("Closed by cashier."))
     create_notification(doc.user, _("Cash Closure Closed"), _("Your daily cash closure was closed."), None, "cash_closure_closed")
     return get_cash_closure_detail(doc.name)
+
+
+@frappe.whitelist()
+def get_cash_closure_payments(closure):
+    return get_cash_closure_detail(closure).get("payments", [])
+
+
+@frappe.whitelist()
+def get_cash_closure_logs(closure):
+    return get_cash_closure_detail(closure).get("logs", [])
 
 
 def ensure_daily_closures_for_active_users():
@@ -182,3 +231,53 @@ def _recalculate_totals(closure_name):
     closure.total_other = totals["Other"]
     closure.save(ignore_permissions=True)
 
+
+def _set_payment_statuses(closure_name, status):
+    for payment in frappe.get_all("Awamir Order Payment", filters={"cash_closure": closure_name}, pluck="name"):
+        frappe.db.set_value("Awamir Order Payment", payment, "status", status)
+
+
+def _closure_detail(closure_name, include_logs=True):
+    doc = frappe.get_doc("Awamir Daily Cash Closure", closure_name)
+    payments = [_payment_row(row.name) for row in frappe.get_all("Awamir Order Payment", filters={"cash_closure": doc.name}, fields=["name"], order_by="created_at asc")]
+    logs = frappe.get_all("Awamir Cash Closure Log", filters={"closure": doc.name}, fields=["*"], order_by="created_at asc") if include_logs else []
+    data = doc.as_dict()
+    data.update(
+        {
+            "closure_id": doc.name,
+            "closure_number": doc.closure_number or doc.name,
+            "owner_name": frappe.db.get_value("User", doc.user, "full_name") or doc.user,
+            "owner_role_label": _("Driver") if doc.closure_type == "driver" else _("Branch Employee"),
+            "payments_count": len(payments),
+            "payments": payments,
+            "logs": logs,
+            "totals": {
+                "total_cash": to_float(doc.total_cash),
+                "total_card": to_float(doc.total_card),
+                "total_transfer": to_float(doc.total_transfer),
+                "total_other": to_float(doc.total_other),
+                "total_amount": to_float(doc.total_amount),
+            },
+        }
+    )
+    return data
+
+
+def _payment_row(payment_name):
+    payment = frappe.get_doc("Awamir Order Payment", payment_name)
+    order_number = payment.order
+    customer_name = payment.customer
+    if payment.order:
+        order = frappe.db.get_value("Awamir Order Request", payment.order, ["order_number", "customer_name"], as_dict=True)
+        if order:
+            order_number = order.order_number or payment.order
+            customer_name = order.customer_name or payment.customer
+    data = payment.as_dict()
+    data.update(
+        {
+            "payment_id": payment.name,
+            "order_number": order_number,
+            "customer_name": customer_name,
+        }
+    )
+    return data

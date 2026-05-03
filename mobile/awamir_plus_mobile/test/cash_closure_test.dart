@@ -263,8 +263,8 @@ Future<void> _collectDriverPayment(_Fixture fixture) async {
 _Fixture _fixture() {
   final mock = MockService();
   return _Fixture(
-    payments: PaymentRepository(mockService: mock),
-    orders: OrderRepository(mockService: mock),
+    payments: PaymentRepository(mockService: mock, useMockData: true),
+    orders: OrderRepository(mockService: mock, useMockData: true),
   );
 }
 

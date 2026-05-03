@@ -593,12 +593,14 @@ class ProductionDepartment {
     required this.name,
     required this.code,
     required this.isActive,
+    this.branch = '',
   });
 
   final String id;
   final String name;
   final String code;
   final bool isActive;
+  final String branch;
 }
 
 class ProductDepartmentMapping {
@@ -757,11 +759,13 @@ class Product {
     required this.description,
     required this.price,
     required this.imageUrl,
+    this.itemCode = '',
     this.badge,
     this.badgeColor,
   });
 
   final int id;
+  final String itemCode;
   final String departmentId;
   final String name;
   final String description;

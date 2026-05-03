@@ -13,7 +13,7 @@ class AuthRepository {
     AuthSessionStore sessionStore = const AuthSessionStore(),
     bool useMockData = AppEnvironment.useMockData,
   }) : _mockService = mockService ?? MockService(),
-       _erpnextService = erpnextService ?? const ErpnextService(),
+       _erpnextService = erpnextService ?? ErpnextService(),
        _sessionStore = sessionStore,
        _useMockData = useMockData;
 

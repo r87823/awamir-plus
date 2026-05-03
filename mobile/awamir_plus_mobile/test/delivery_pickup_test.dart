@@ -313,7 +313,7 @@ void main() {
 }
 
 OrderRepository _repository() {
-  return OrderRepository(mockService: MockService());
+  return OrderRepository(mockService: MockService(), useMockData: true);
 }
 
 const _employee = AppUser(

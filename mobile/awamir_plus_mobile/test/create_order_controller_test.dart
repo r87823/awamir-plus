@@ -76,9 +76,15 @@ Future<CreateOrderController> _createController() async {
   final mockService = MockService();
   final controller = CreateOrderController(
     currentUser: _employee,
-    productRepository: ProductRepository(mockService: mockService),
-    customerRepository: CustomerRepository(mockService: mockService),
-    orderRepository: OrderRepository(mockService: mockService),
+    productRepository: ProductRepository(
+      mockService: mockService,
+      useMockData: true,
+    ),
+    customerRepository: CustomerRepository(
+      mockService: mockService,
+      useMockData: true,
+    ),
+    orderRepository: OrderRepository(mockService: mockService, useMockData: true),
   );
   await controller.loadCategories();
   return controller;

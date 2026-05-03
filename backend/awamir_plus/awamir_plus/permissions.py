@@ -123,6 +123,21 @@ def get_user_branch(user=None):
         return branch
 
     try:
+        branch = frappe.db.get_value(
+            "User Permission",
+            {
+                "user": user,
+                "allow": "Branch",
+                "applicable_for": ["in", ("", None)],
+            },
+            "for_value",
+        )
+        if branch:
+            return branch
+    except Exception:
+        pass
+
+    try:
         employee = frappe.db.get_value("Employee", {"user_id": user, "status": "Active"}, "branch")
         if employee:
             return employee
@@ -157,4 +172,3 @@ def get_driver_user(user=None):
     if ROLE_DRIVER in get_user_roles(user) or is_awamir_admin(user):
         return user
     return None
-

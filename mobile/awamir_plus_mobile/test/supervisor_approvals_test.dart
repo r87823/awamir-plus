@@ -184,7 +184,10 @@ void main() {
 }
 
 OrderRepository _repository([MockService? mockService]) {
-  return OrderRepository(mockService: mockService ?? MockService());
+  return OrderRepository(
+    mockService: mockService ?? MockService(),
+    useMockData: true,
+  );
 }
 
 const _employee = AppUser(

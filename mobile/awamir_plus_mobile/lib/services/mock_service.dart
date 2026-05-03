@@ -1538,7 +1538,9 @@ class MockService implements AuthService {
         .where((payment) => payment.orderId == orderId && payment.amount > 0)
         .toList();
     if (payments.any(
-      (payment) => payment.status != OrderPaymentStatus.postedToErpNext,
+      (payment) =>
+          payment.status != OrderPaymentStatus.postedToErpNext &&
+          payment.status != OrderPaymentStatus.linkedToInvoice,
     )) {
       final failed = _updateOrderErpSync(
         order,
@@ -1563,6 +1565,7 @@ class MockService implements AuthService {
 
     final created = <PaymentAllocation>[];
     for (final payment in payments) {
+      if (payment.status == OrderPaymentStatus.linkedToInvoice) continue;
       final alreadyAllocated = _paymentAllocations.any(
         (allocation) =>
             allocation.paymentId == payment.id &&
@@ -1588,6 +1591,9 @@ class MockService implements AuthService {
       _paymentAllocationSequence++;
       _paymentAllocations.insert(0, allocation);
       created.add(allocation);
+      _replacePayment(
+        payment.copyWith(status: OrderPaymentStatus.linkedToInvoice),
+      );
       remainingInvoice -= amount;
     }
 
@@ -2030,8 +2036,7 @@ class MockService implements AuthService {
       );
     }
     if (nextStatus == OrderStatus.productionCompleted &&
-        order.status != OrderStatus.inProduction &&
-        order.status != OrderStatus.sentToProduction) {
+        order.status != OrderStatus.inProduction) {
       throw const RepositoryException(
         'لا يمكن إكمال التنفيذ لهذه الحالة',
         code: 'invalid_production_transition',

@@ -44,22 +44,38 @@ class _AccountingScreenState extends State<AccountingScreen> {
               const SizedBox(height: 14),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: _AccountingTab.values.map((tab) {
-                    final selected = tab == _tab;
-                    return ChoiceChip(
-                      label: Text('${tab.label} (${_countForTab(tab)})'),
-                      selected: selected,
-                      onSelected: (_) => setState(() => _tab = tab),
-                      selectedColor: AppColors.goldLight,
-                      labelStyle: TextStyle(
-                        color: selected ? AppColors.navy : AppColors.textMuted,
-                        fontWeight: FontWeight.w900,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Align(
+                      alignment: AlignmentDirectional.centerStart,
+                      child: OutlinedButton.icon(
+                        onPressed: widget.controller.loadAccountingLists,
+                        icon: const Icon(Icons.refresh),
+                        label: const Text('تحديث'),
                       ),
-                    );
-                  }).toList(),
+                    ),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: _AccountingTab.values.map((tab) {
+                        final selected = tab == _tab;
+                        return ChoiceChip(
+                          label: Text('${tab.label} (${_countForTab(tab)})'),
+                          selected: selected,
+                          onSelected: (_) => setState(() => _tab = tab),
+                          selectedColor: AppColors.goldLight,
+                          labelStyle: TextStyle(
+                            color: selected
+                                ? AppColors.navy
+                                : AppColors.textMuted,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: 14),
@@ -302,12 +318,16 @@ class _AccountingOrderCard extends StatelessWidget {
           _Row(label: 'العربون', value: formatCurrency(order.depositAmount)),
           _Row(label: 'المتبقي', value: formatCurrency(order.remainingAmount)),
           _Row(label: 'Sales Order', value: order.erpnextSalesOrderId),
+          if (order.erpnextSalesOrderId.isNotEmpty)
+            const _Row(label: 'حالة Sales Order', value: 'Draft'),
           _Row(
             label: 'Payment Entry',
             value: order.erpnextPaymentEntryIds.join(', '),
           ),
           _Row(label: 'Sales Invoice', value: order.erpnextSalesInvoiceId),
-          _Row(label: 'حالة المزامنة', value: order.erpSyncStatus.label),
+          if (order.erpnextSalesInvoiceId.isNotEmpty)
+            const _Row(label: 'حالة Sales Invoice', value: 'Draft'),
+          _SyncBadge(status: order.erpSyncStatus),
           if (showError) _Row(label: 'الخطأ', value: order.erpSyncError),
           const SizedBox(height: 10),
           Row(
@@ -362,6 +382,8 @@ class _PaymentPostingCard extends StatelessWidget {
           _Row(label: 'الطريقة', value: payment.method.label),
           _Row(label: 'الحالة', value: payment.status.label),
           _Row(label: 'Payment Entry', value: payment.erpnextPaymentEntryId),
+          if (payment.erpnextPaymentEntryId.isNotEmpty)
+            const _Row(label: 'حالة Payment Entry', value: 'Draft'),
           const SizedBox(height: 10),
           ElevatedButton.icon(
             onPressed: onAction,
@@ -371,6 +393,65 @@ class _PaymentPostingCard extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+class _SyncBadge extends StatelessWidget {
+  const _SyncBadge({required this.status});
+
+  final ErpSyncStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = _colors();
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        children: [
+          const SizedBox(
+            width: 110,
+            child: Text(
+              'حالة المزامنة',
+              style: TextStyle(
+                color: AppColors.textMuted,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(
+              color: colors.$1,
+              borderRadius: BorderRadius.circular(AppRadius.sm),
+            ),
+            child: Text(
+              status.label,
+              style: TextStyle(
+                color: colors.$2,
+                fontSize: 12,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  (Color, Color) _colors() {
+    switch (status) {
+      case ErpSyncStatus.synced:
+        return (const Color(0xFFE6F4EA), const Color(0xFF146C2E));
+      case ErpSyncStatus.partiallySynced:
+      case ErpSyncStatus.pending:
+        return (AppColors.goldLight, AppColors.navy);
+      case ErpSyncStatus.failed:
+        return (const Color(0xFFFFE8E5), const Color(0xFFB42318));
+      case ErpSyncStatus.notSynced:
+        return (const Color(0xFFEFF1F5), AppColors.textMuted);
+    }
   }
 }
 

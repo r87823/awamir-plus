@@ -136,6 +136,61 @@ void main() {
     expect(updated.status, OrderStatus.inProduction);
   });
 
+  test('لا يمكن Production Completed قبل In Production', () async {
+    final repository = _repository();
+
+    await repository.assignProductionDepartment(
+      orderId: 'ORD-0018',
+      productionDepartmentId: 'PD-SWEETS',
+      changedBy: _distribution,
+    );
+
+    expect(
+      () => repository.updateProductionStatus(
+        orderId: 'ORD-0018',
+        status: OrderStatus.productionCompleted,
+        changedBy: _production,
+      ),
+      throwsA(
+        isA<AppException>().having(
+          (error) => error.code,
+          'code',
+          'invalid_production_transition',
+        ),
+      ),
+    );
+  });
+
+  test('لا يمكن Ready قبل Production Completed', () async {
+    final repository = _repository();
+
+    await repository.assignProductionDepartment(
+      orderId: 'ORD-0018',
+      productionDepartmentId: 'PD-SWEETS',
+      changedBy: _distribution,
+    );
+    await repository.updateProductionStatus(
+      orderId: 'ORD-0018',
+      status: OrderStatus.inProduction,
+      changedBy: _production,
+    );
+
+    expect(
+      () => repository.updateProductionStatus(
+        orderId: 'ORD-0018',
+        status: OrderStatus.readyForPickup,
+        changedBy: _production,
+      ),
+      throwsA(
+        isA<AppException>().having(
+          (error) => error.code,
+          'code',
+          'ready_for_pickup_not_allowed',
+        ),
+      ),
+    );
+  });
+
   test('Pickup يمكن تحويله إلى Ready For Pickup بعد اكتمال الإنتاج', () async {
     final repository = _repository();
 
@@ -163,6 +218,41 @@ void main() {
 
     expect(ready.status, OrderStatus.readyForPickup);
     expect(logs.last.newStatus, OrderStatus.readyForPickup);
+  });
+
+  test('delivery_type يمنع Ready For Delivery لطلب Pickup', () async {
+    final repository = _repository();
+
+    await repository.assignProductionDepartment(
+      orderId: 'ORD-0018',
+      productionDepartmentId: 'PD-SWEETS',
+      changedBy: _distribution,
+    );
+    await repository.updateProductionStatus(
+      orderId: 'ORD-0018',
+      status: OrderStatus.inProduction,
+      changedBy: _production,
+    );
+    await repository.updateProductionStatus(
+      orderId: 'ORD-0018',
+      status: OrderStatus.productionCompleted,
+      changedBy: _production,
+    );
+
+    expect(
+      () => repository.updateProductionStatus(
+        orderId: 'ORD-0018',
+        status: OrderStatus.readyForDelivery,
+        changedBy: _production,
+      ),
+      throwsA(
+        isA<AppException>().having(
+          (error) => error.code,
+          'code',
+          'ready_for_delivery_not_allowed',
+        ),
+      ),
+    );
   });
 
   test(
@@ -197,6 +287,41 @@ void main() {
     },
   );
 
+  test('delivery_type يمنع Ready For Pickup لطلب Delivery', () async {
+    final repository = _repository();
+
+    await repository.assignProductionDepartment(
+      orderId: 'ORD-0019',
+      productionDepartmentId: 'PD-SWEETS',
+      changedBy: _distribution,
+    );
+    await repository.updateProductionStatus(
+      orderId: 'ORD-0019',
+      status: OrderStatus.inProduction,
+      changedBy: _production,
+    );
+    await repository.updateProductionStatus(
+      orderId: 'ORD-0019',
+      status: OrderStatus.productionCompleted,
+      changedBy: _production,
+    );
+
+    expect(
+      () => repository.updateProductionStatus(
+        orderId: 'ORD-0019',
+        status: OrderStatus.readyForPickup,
+        changedBy: _production,
+      ),
+      throwsA(
+        isA<AppException>().having(
+          (error) => error.code,
+          'code',
+          'ready_for_pickup_not_allowed',
+        ),
+      ),
+    );
+  });
+
   test('كل تحديث إنتاج ينشئ Status Log', () async {
     final repository = _repository();
 
@@ -219,7 +344,7 @@ void main() {
 }
 
 OrderRepository _repository() {
-  return OrderRepository(mockService: MockService());
+  return OrderRepository(mockService: MockService(), useMockData: true);
 }
 
 const _employee = AppUser(

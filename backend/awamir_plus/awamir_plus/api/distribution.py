@@ -1,59 +1,81 @@
 import frappe
 from frappe import _
 
-from awamir_plus.constants import ORDER_STATUS_READY_FOR_DELIVERY, ORDER_STATUS_SENT_TO_DISTRIBUTION, ORDER_STATUS_SENT_TO_PRODUCTION
-from awamir_plus.permissions import is_awamir_admin, require_roles
-from awamir_plus.services.accounting import create_work_order_for_order
-from awamir_plus.utils import assert_required, create_notification, get_awamir_settings, get_users_with_role, make_status_log
+from awamir_plus.constants import (
+    ORDER_STATUS_ASSIGNED_TO_DRIVER,
+    ORDER_STATUS_DELIVERY_FAILED,
+    ORDER_STATUS_DRIVER_PICKED_UP,
+    ORDER_STATUS_OUT_FOR_DELIVERY,
+    ORDER_STATUS_READY_FOR_DELIVERY,
+    ORDER_STATUS_SENT_TO_DISTRIBUTION,
+    ORDER_STATUS_SENT_TO_PRODUCTION,
+)
+from awamir_plus.permissions import get_user_branch, get_user_production_department, is_awamir_admin, require_roles
+from awamir_plus.utils import assert_required, create_notification, get_users_with_role, make_status_log
 
 
 @frappe.whitelist()
 def get_distribution_orders():
     require_roles(["Awamir Distribution Manager", "Awamir System Admin"])
-    return frappe.get_all(
-        "Awamir Order Request",
-        filters={"status": ["in", [ORDER_STATUS_SENT_TO_DISTRIBUTION, ORDER_STATUS_READY_FOR_DELIVERY]]},
-        fields=["*"],
-        order_by="required_date asc",
-    )
+    filters = {
+        "status": [
+            "in",
+            [
+                ORDER_STATUS_SENT_TO_DISTRIBUTION,
+                ORDER_STATUS_READY_FOR_DELIVERY,
+                ORDER_STATUS_ASSIGNED_TO_DRIVER,
+                ORDER_STATUS_DRIVER_PICKED_UP,
+                ORDER_STATUS_OUT_FOR_DELIVERY,
+                ORDER_STATUS_DELIVERY_FAILED,
+            ],
+        ]
+    }
+    if not is_awamir_admin() and get_user_branch():
+        filters["created_branch"] = get_user_branch()
+    orders = frappe.get_all("Awamir Order Request", filters=filters, pluck="name", order_by="required_date asc")
+    from awamir_plus.api.orders import get_order_detail
+
+    return [get_order_detail(order) for order in orders]
 
 
 @frappe.whitelist()
 def get_production_departments():
     require_roles(["Awamir Distribution Manager", "Awamir Production User", "Awamir System Admin"])
-    return frappe.get_all("Awamir Production Department", filters={"is_active": 1}, fields=["*"], order_by="department_name asc")
+    departments = frappe.get_all("Awamir Production Department", filters={"is_active": 1}, pluck="name", order_by="department_name asc")
+    return [_department_response(department) for department in departments]
 
 
 @frappe.whitelist()
-def get_default_department_for_order(order):
+def get_default_department_for_order(order=None, order_id=None):
     require_roles(["Awamir Distribution Manager", "Awamir System Admin"])
-    doc = frappe.get_doc("Awamir Order Request", order)
+    doc = frappe.get_doc("Awamir Order Request", order or order_id)
+    if not is_awamir_admin() and get_user_branch() and doc.created_branch != get_user_branch():
+        frappe.throw(_("You can only distribute orders for your branch."), frappe.PermissionError)
     for item in doc.items:
-        mapping = frappe.get_all(
-            "Awamir Product Department Mapping",
-            filters={"is_active": 1, "item_code": item.item_code},
-            fields=["production_department", "requires_work_order"],
-            limit=1,
-        )
+        mapping = _get_department_mapping({"is_active": 1, "item_code": item.item_code})
         if mapping:
-            return mapping[0]
+            return _mapping_response(mapping, "item_code")
     for item in doc.items:
-        mapping = frappe.get_all(
-            "Awamir Product Department Mapping",
-            filters={"is_active": 1, "item_group": item.product_category},
-            fields=["production_department", "requires_work_order"],
-            limit=1,
-        )
+        mapping = _get_department_mapping({"is_active": 1, "item_group": item.product_category})
         if mapping:
-            return mapping[0]
+            return _mapping_response(mapping, "item_group")
     return None
 
 
 @frappe.whitelist()
-def assign_production_department(order, production_department):
+def assign_production_department(order=None, production_department=None, order_id=None):
     require_roles(["Awamir Distribution Manager", "Awamir System Admin"])
+    order = order or order_id
+    production_department = (production_department or "").strip()
+    assert_required(order, "Order is required.")
     assert_required(production_department, "Production department is required.")
+    if not frappe.db.exists("Awamir Production Department", {"name": production_department, "is_active": 1}):
+        frappe.throw(_("Production department is not active or does not exist."))
     doc = frappe.get_doc("Awamir Order Request", order)
+    if not is_awamir_admin() and get_user_branch() and doc.created_branch != get_user_branch():
+        frappe.throw(_("You can only distribute orders for your branch."), frappe.PermissionError)
+    if doc.status == ORDER_STATUS_SENT_TO_PRODUCTION and doc.production_department == production_department:
+        return _distribution_response(doc, _("Order is already sent to production."))
     if doc.status != ORDER_STATUS_SENT_TO_DISTRIBUTION:
         frappe.throw(_("Only orders sent to distribution can be assigned to production."))
     old_status = doc.status
@@ -62,12 +84,55 @@ def assign_production_department(order, production_department):
     doc.save(ignore_permissions=True)
     make_status_log(doc.name, old_status, doc.status, _("Assigned to production department {0}.").format(production_department))
 
-    if get_awamir_settings().create_work_order_on_distribution and any(item.requires_work_order for item in doc.items):
-        create_work_order_for_order(doc.name)
-
     create_notification(doc.created_by_user, _("Order Sent To Production"), _("Order {0} was sent to production.").format(doc.order_number), doc.name, "order_sent_to_production")
     for user in get_users_with_role("Awamir Production User"):
-        if is_awamir_admin(user):
-            create_notification(user, _("New Production Order"), _("Order {0} is assigned for production.").format(doc.order_number), doc.name, "production_order")
-    return doc.as_dict()
+        if get_user_production_department(user) == production_department or is_awamir_admin(user):
+            create_notification(user, _("New Production Order"), _("Order {0} is assigned for production.").format(doc.order_number), doc.name, "order_sent_to_production")
+    return _distribution_response(doc, _("Order assigned to production successfully."))
 
+
+def _get_department_mapping(filters):
+    rows = frappe.get_all(
+        "Awamir Product Department Mapping",
+        filters=filters,
+        fields=["production_department", "requires_work_order"],
+        limit=1,
+    )
+    return rows[0] if rows else None
+
+
+def _mapping_response(mapping, source):
+    return {
+        "production_department": mapping.production_department,
+        "requires_work_order": mapping.requires_work_order,
+        "source": source,
+        "department": _department_response(mapping.production_department),
+    }
+
+
+def _department_response(department):
+    if not department:
+        return None
+    doc = frappe.get_doc("Awamir Production Department", department)
+    return {
+        "id": doc.name,
+        "name": doc.department_name,
+        "code": doc.department_code,
+        "branch": doc.branch,
+        "is_active": doc.is_active,
+        "department_name": doc.department_name,
+        "department_code": doc.department_code,
+    }
+
+
+def _distribution_response(doc, message):
+    from awamir_plus.api.orders import get_order_detail
+
+    return {
+        "order_id": doc.name,
+        "order_number": doc.order_number,
+        "status": doc.status,
+        "production_department": doc.production_department,
+        "message": message,
+        "order": get_order_detail(doc.name),
+    }

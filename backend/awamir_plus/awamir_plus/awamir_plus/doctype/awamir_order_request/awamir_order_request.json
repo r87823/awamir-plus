@@ -34,6 +34,8 @@
     "schedule_section",
     "required_date",
     "required_time",
+    "order_notes",
+    "customer_notes",
     "status",
     "items",
     "attachments",
@@ -80,6 +82,8 @@
     {"fieldname": "schedule_section", "label": "Schedule", "fieldtype": "Section Break"},
     {"fieldname": "required_date", "label": "Required Date", "fieldtype": "Date", "reqd": 1},
     {"fieldname": "required_time", "label": "Required Time", "fieldtype": "Time", "reqd": 1},
+    {"fieldname": "order_notes", "label": "Order Notes", "fieldtype": "Small Text"},
+    {"fieldname": "customer_notes", "label": "Customer Notes", "fieldtype": "Small Text"},
     {"fieldname": "status", "label": "Status", "fieldtype": "Select", "options": "Draft\nPending Supervisor Approval\nReturned For Edit\nRejected\nSent To Distribution\nSent To Production\nIn Production\nProduction Completed\nReady For Pickup\nReady For Delivery\nAssigned To Driver\nDriver Picked Up\nOut For Delivery\nDelivered\nDelivery Failed\nCancelled", "default": "Draft", "reqd": 1},
     {"fieldname": "items", "label": "Items", "fieldtype": "Table", "options": "Awamir Order Request Item", "reqd": 1},
     {"fieldname": "attachments", "label": "Attachments", "fieldtype": "Table", "options": "Awamir Order Attachment"},
@@ -111,4 +115,3 @@
     {"role": "Awamir System Admin", "read": 1, "write": 1, "create": 1, "delete": 1, "permlevel": 0}
   ]
 }
-

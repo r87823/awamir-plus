@@ -42,19 +42,43 @@ def get_product_price(item_code, price_list=None):
 @frappe.whitelist()
 def get_product_department_mapping(item_code=None, item_group=None):
     require_login()
-    filters = {"is_active": 1}
     if item_code:
-        filters["item_code"] = item_code
-    elif item_group:
-        filters["item_group"] = item_group
-    else:
-        return None
+        mapping = _get_item_department_mapping(item_code)
+        if mapping:
+            return mapping
+        item_group = item_group or frappe.db.get_value("Item", item_code, "item_group")
 
+    if item_group:
+        return _get_group_department_mapping(item_group)
+
+    return None
+
+
+def _get_item_department_mapping(item_code):
     mapping = frappe.get_all(
         "Awamir Product Department Mapping",
-        filters=filters,
+        filters={"is_active": 1, "item_code": item_code},
         fields=["name", "item_group", "item_code", "production_department", "requires_work_order"],
         limit=1,
     )
-    return mapping[0] if mapping else None
+    return _with_department_name(mapping[0]) if mapping else None
 
+
+def _get_group_department_mapping(item_group):
+    mappings = frappe.get_all(
+        "Awamir Product Department Mapping",
+        filters={"is_active": 1, "item_group": item_group},
+        fields=["name", "item_group", "item_code", "production_department", "requires_work_order"],
+        order_by="creation asc",
+    )
+    mapping = next((row for row in mappings if not row.item_code), None)
+    return _with_department_name(mapping) if mapping else None
+
+
+def _with_department_name(mapping):
+    mapping["production_department_name"] = frappe.db.get_value(
+        "Awamir Production Department",
+        mapping.production_department,
+        "department_name",
+    )
+    return mapping

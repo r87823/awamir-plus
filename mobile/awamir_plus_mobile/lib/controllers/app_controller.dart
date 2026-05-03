@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../core/constants/environment.dart';
 import '../core/errors/app_exception.dart';
 import '../core/permissions/access_control.dart';
 import '../core/utils/view_state.dart';
@@ -16,31 +17,37 @@ class AppController extends ChangeNotifier {
   factory AppController({
     required AppUser currentUser,
     MockService? mockService,
+    bool useMockData = AppEnvironment.useMockData,
   }) {
     final sharedMockService = mockService ?? MockService();
-    const erpnextService = ErpnextService();
+    final erpnextService = ErpnextService();
 
     return AppController.withRepositories(
       currentUser: currentUser,
       productRepository: ProductRepository(
         mockService: sharedMockService,
         erpnextService: erpnextService,
+        useMockData: useMockData,
       ),
       orderRepository: OrderRepository(
         mockService: sharedMockService,
         erpnextService: erpnextService,
+        useMockData: useMockData,
       ),
       customerRepository: CustomerRepository(
         mockService: sharedMockService,
         erpnextService: erpnextService,
+        useMockData: useMockData,
       ),
       paymentRepository: PaymentRepository(
         mockService: sharedMockService,
         erpnextService: erpnextService,
+        useMockData: useMockData,
       ),
       accountingRepository: AccountingRepository(
         mockService: sharedMockService,
         erpnextService: erpnextService,
+        useMockData: useMockData,
       ),
     );
   }

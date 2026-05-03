@@ -4,7 +4,7 @@
   "module": "Awamir Plus",
   "issingle": 1,
   "custom": 0,
-  "field_order": ["default_company", "default_price_list", "default_warehouse", "default_currency", "workflow_section", "require_deposit_before_production", "create_sales_order_on_approval", "create_work_order_on_distribution", "create_invoice_on_delivery", "allow_delivery_without_full_payment", "enable_driver_cash_closure"],
+  "field_order": ["default_company", "default_price_list", "default_warehouse", "default_currency", "workflow_section", "require_deposit_before_production", "create_sales_order_on_approval", "create_work_order_on_distribution", "create_invoice_on_delivery", "allow_delivery_without_full_payment", "enable_driver_cash_closure", "accounting_submit_section", "submit_sales_order", "submit_payment_entry", "submit_sales_invoice", "submit_work_order"],
   "fields": [
     {"fieldname": "default_company", "label": "Default Company", "fieldtype": "Link", "options": "Company"},
     {"fieldname": "default_price_list", "label": "Default Price List", "fieldtype": "Link", "options": "Price List"},
@@ -16,11 +16,15 @@
     {"fieldname": "create_work_order_on_distribution", "label": "Create Work Order On Distribution", "fieldtype": "Check", "default": 0},
     {"fieldname": "create_invoice_on_delivery", "label": "Create Invoice On Delivery", "fieldtype": "Check", "default": 0},
     {"fieldname": "allow_delivery_without_full_payment", "label": "Allow Delivery Without Full Payment", "fieldtype": "Check", "default": 0},
-    {"fieldname": "enable_driver_cash_closure", "label": "Enable Driver Cash Closure", "fieldtype": "Check", "default": 1}
+    {"fieldname": "enable_driver_cash_closure", "label": "Enable Driver Cash Closure", "fieldtype": "Check", "default": 1},
+    {"fieldname": "accounting_submit_section", "label": "Accounting Submit Settings", "fieldtype": "Section Break"},
+    {"fieldname": "submit_sales_order", "label": "Submit Sales Order After Creation", "fieldtype": "Check", "default": 0},
+    {"fieldname": "submit_payment_entry", "label": "Submit Payment Entry After Creation", "fieldtype": "Check", "default": 0},
+    {"fieldname": "submit_sales_invoice", "label": "Submit Sales Invoice After Creation", "fieldtype": "Check", "default": 0},
+    {"fieldname": "submit_work_order", "label": "Submit Work Order After Creation", "fieldtype": "Check", "default": 0}
   ],
   "permissions": [
     {"role": "Awamir System Admin", "read": 1, "write": 1, "create": 1, "delete": 1, "permlevel": 0},
     {"role": "System Manager", "read": 1, "write": 1, "create": 1, "delete": 1, "permlevel": 0}
   ]
 }
-

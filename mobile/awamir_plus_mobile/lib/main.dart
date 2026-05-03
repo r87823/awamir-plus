@@ -17,6 +17,7 @@ import 'screens/production_screen.dart';
 import 'screens/role_feature_screen.dart';
 import 'screens/supervisor_approvals_screen.dart';
 import 'controllers/app_controller.dart';
+import 'core/constants/environment.dart';
 import 'core/permissions/access_control.dart';
 import 'core/theme/app_theme.dart';
 import 'models/app_models.dart';
@@ -29,7 +30,12 @@ void main() {
 }
 
 class AwamirPlusApp extends StatelessWidget {
-  const AwamirPlusApp({super.key});
+  const AwamirPlusApp({
+    super.key,
+    this.useMockData = AppEnvironment.useMockData,
+  });
+
+  final bool useMockData;
 
   @override
   Widget build(BuildContext context) {
@@ -50,13 +56,15 @@ class AwamirPlusApp extends StatelessWidget {
           child: child ?? const SizedBox.shrink(),
         );
       },
-      home: const AuthGate(),
+      home: AuthGate(useMockData: useMockData),
     );
   }
 }
 
 class AuthGate extends StatefulWidget {
-  const AuthGate({super.key});
+  const AuthGate({super.key, required this.useMockData});
+
+  final bool useMockData;
 
   @override
   State<AuthGate> createState() => _AuthGateState();
@@ -65,7 +73,10 @@ class AuthGate extends StatefulWidget {
 class _AuthGateState extends State<AuthGate> {
   late final MockService _mockService = MockService();
   late final AuthController _authController = AuthController(
-    authRepository: AuthRepository(mockService: _mockService),
+    authRepository: AuthRepository(
+      mockService: _mockService,
+      useMockData: widget.useMockData,
+    ),
   );
 
   @override
@@ -92,6 +103,7 @@ class _AuthGateState extends State<AuthGate> {
           key: ValueKey(user.id),
           currentUser: user,
           mockService: _mockService,
+          useMockData: widget.useMockData,
           onLogout: () => _authController.logout(),
         );
       },
@@ -104,11 +116,13 @@ class HomeShell extends StatefulWidget {
     super.key,
     required this.currentUser,
     required this.mockService,
+    required this.useMockData,
     required this.onLogout,
   });
 
   final AppUser currentUser;
   final MockService mockService;
+  final bool useMockData;
   final VoidCallback onLogout;
 
   @override
@@ -119,6 +133,7 @@ class _HomeShellState extends State<HomeShell> {
   late final AppController _controller = AppController(
     currentUser: widget.currentUser,
     mockService: widget.mockService,
+    useMockData: widget.useMockData,
   );
   AppFeature _selectedFeature = AppFeature.home;
 

@@ -1,70 +1,48 @@
 # Awamir Plus
 
-Awamir Plus is an end-to-end order management platform for branch sales, supervisor approvals, distribution, production, delivery, daily cash closures, and ERPNext accounting integration.
+Awamir Plus is an Arabic RTL order operations platform for branch sales, supervisor approvals, distribution, production, delivery, daily cash closures, and ERPNext accounting preparation.
 
-The repository is organized as a monorepo so the mobile app, Frappe backend, design reference, and documentation can evolve together without mixing responsibilities.
+The repository is a monorepo. Flutter, Frappe, design references, and docs are kept together while each layer stays isolated.
 
-## Project Structure
+## Structure
 
 ```text
 awamir-plus/
   mobile/
-    awamir_plus_mobile/
+    awamir_plus_mobile/      # Flutter native app
   backend/
-    awamir_plus/
+    awamir_plus/             # Custom Frappe app, no ERPNext Core edits
   design-reference/
-    sales-classic.html
+    sales-classic.html       # Visual reference only
   docs/
+    API_OVERVIEW.md
+    MVP_TEST_SCENARIO.md
+    DEPLOY_DOCKER.md
     INSTALL_DOCKER.md
     API.md
     DEPLOYMENT.md
     PROJECT_PLAN.md
 ```
 
-## Components
+## Mobile
 
-### mobile/
+Mock mode:
 
-Contains the Flutter native application:
-
-```text
-mobile/awamir_plus_mobile/
+```bash
+cd mobile/awamir_plus_mobile
+flutter run --dart-define=USE_MOCK_DATA=true
 ```
 
-The app currently runs in mock mode and includes Arabic RTL screens for order creation, approvals, distribution, production, delivery, cash closures, notifications, and accounting preparation.
+Real ERPNext mode:
 
-### backend/
-
-Contains the custom Frappe app:
-
-```text
-backend/awamir_plus/
+```bash
+cd mobile/awamir_plus_mobile
+flutter run \
+  --dart-define=USE_MOCK_DATA=false \
+  --dart-define=ERPNEXT_BASE_URL=https://awamirplus.r8787m.cc
 ```
 
-This app is designed to be installed into ERPNext as a separate app without modifying ERPNext Core. It contains DocTypes, roles, permissions, and whitelisted APIs that the Flutter app can call later.
-
-### design-reference/
-
-Contains the original HTML design reference:
-
-```text
-design-reference/sales-classic.html
-```
-
-This file is kept as a visual reference only. The Flutter app uses native widgets, not WebView.
-
-### docs/
-
-Contains project documentation:
-
-- `INSTALL_DOCKER.md`: local Docker setup notes.
-- `API.md`: backend API reference.
-- `DEPLOYMENT.md`: deployment notes.
-- `PROJECT_PLAN.md`: phased roadmap and implementation plan.
-
-## Quick Checks
-
-Flutter:
+Run checks:
 
 ```bash
 cd mobile/awamir_plus_mobile
@@ -72,21 +50,55 @@ flutter analyze
 flutter test
 ```
 
-Frappe app structure:
+## Backend
 
-```bash
-cd backend/awamir_plus
-python3 scripts/verify_structure.py
-python3 -m compileall awamir_plus
-```
-
-## GitHub
-
-This repository is prepared to be pushed to:
+The backend is a standalone Frappe app installed into ERPNext:
 
 ```text
-https://github.com/r87823/awamir-plus.git
+backend/awamir_plus
 ```
 
-No secrets, environment files, generated Flutter build outputs, or Frappe runtime files should be committed.
+It defines Awamir DocTypes, roles, permissions, services, and whitelisted APIs. It must be deployed as a custom app only; ERPNext Core is not modified.
 
+Run local Python checks:
+
+```bash
+python3 -m compileall backend/awamir_plus/awamir_plus
+```
+
+## MVP Accounting Notes
+
+Current MVP accounting behavior is intentionally conservative:
+
+- Sales Order is created as Draft.
+- Payment Entry is created as Draft.
+- Sales Invoice is created as Draft.
+- Payment allocation is tracked inside Awamir.
+- ERPNext ledger posting is not performed until submit settings are enabled later.
+- Work Order requires valid BOM setup in ERPNext.
+- No external payment gateway is integrated.
+- Notifications are in-system only; push notifications are not enabled yet.
+
+Future submit settings exist in `Awamir App Settings` and default to false:
+
+- `submit_sales_order`
+- `submit_payment_entry`
+- `submit_sales_invoice`
+- `submit_work_order`
+
+## Demo Accounts
+
+Mock mode uses usernames like `employee`, `supervisor`, `distribution`, `production`, `driver`, `cashier`, `accountant`, and `admin` with password `123456`.
+
+Real ERPNext demo users are created by the seed script and use the configured demo password for the site.
+
+## Documentation
+
+- [API Overview](docs/API_OVERVIEW.md)
+- [MVP Test Scenario](docs/MVP_TEST_SCENARIO.md)
+- [Docker Deployment](docs/DEPLOY_DOCKER.md)
+- [Project Plan](docs/PROJECT_PLAN.md)
+
+## Safety
+
+Do not commit secrets, `.env`, `site_config.json`, backups, build output, or generated runtime files. Use `.env.example` for sample configuration only.

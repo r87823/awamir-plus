@@ -10,7 +10,7 @@ class ProductRepository {
     ErpnextService? erpnextService,
     bool useMockData = AppEnvironment.useMockData,
   }) : _mockService = mockService ?? MockService(),
-       _erpnextService = erpnextService ?? const ErpnextService(),
+       _erpnextService = erpnextService ?? ErpnextService(),
        _useMockData = useMockData;
 
   final MockService _mockService;

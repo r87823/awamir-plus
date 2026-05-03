@@ -1,17 +1,25 @@
 class AppEnvironment {
   const AppEnvironment._();
 
-  static const useMockData = true;
+  static const useMockData = bool.fromEnvironment(
+    'USE_MOCK_DATA',
+    defaultValue: false,
+  );
 
-  static const erpnextBaseUrl = String.fromEnvironment(
+  static const baseUrl = String.fromEnvironment(
     'ERPNEXT_BASE_URL',
-    defaultValue: '',
+    defaultValue: 'https://awamirplus.r8787m.cc',
   );
 
-  static const erpnextApiVersion = String.fromEnvironment(
-    'ERPNEXT_API_VERSION',
-    defaultValue: 'v1',
+  static const apiPrefix = String.fromEnvironment(
+    'ERPNEXT_API_PREFIX',
+    defaultValue: '/api/method',
   );
 
-  static const requestTimeout = Duration(seconds: 30);
+  static const timeoutSeconds = int.fromEnvironment(
+    'ERPNEXT_TIMEOUT_SECONDS',
+    defaultValue: 30,
+  );
+
+  static const requestTimeout = Duration(seconds: timeoutSeconds);
 }

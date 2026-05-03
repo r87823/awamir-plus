@@ -8,7 +8,7 @@ void main() {
   testWidgets('login renders branch employee home', (tester) async {
     SharedPreferences.setMockInitialValues({});
 
-    await tester.pumpWidget(const AwamirPlusApp());
+    await tester.pumpWidget(const AwamirPlusApp(useMockData: true));
     await tester.pumpAndSettle();
 
     expect(find.text('تسجيل الدخول'), findsOneWidget);

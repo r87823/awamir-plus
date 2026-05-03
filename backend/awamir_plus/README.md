@@ -64,6 +64,15 @@ bench --site your-site.local migrate
 - `allow_delivery_without_full_payment`
 - `enable_driver_cash_closure`
 
+إعدادات التفعيل المحاسبي المستقبلية موجودة لكن قيمتها الافتراضية `0` حتى تبقى مستندات ERPNext في وضع Draft أثناء الـ MVP:
+
+- `submit_sales_order`
+- `submit_payment_entry`
+- `submit_sales_invoice`
+- `submit_work_order`
+
+إذا بقيت false يتم إنشاء `Sales Order`, `Payment Entry`, `Sales Invoice`, و `Work Order` كمسودات فقط. عند تفعيلها لاحقاً يجب معالجة أخطاء submit بوضوح وعدم تكرار المستندات.
+
 ## APIs
 
 كل APIs موجودة داخل:
@@ -171,6 +180,61 @@ awamir_plus.api.auth.get_current_user
 
 للحصول على المستخدم، الأدوار، الفرع، قسم الإنتاج، وبيانات السائق.
 
+## بيانات تجريبية
+
+يمكن تجهيز بيانات أولية آمنة للاختبار بدون حذف أو تكرار البيانات الحالية:
+
+```bash
+bench --site your-site.local execute awamir_plus.scripts.seed_demo_data.run
+```
+
+السكربت ينشئ البيانات الناقصة فقط:
+
+- فروع أوامر بلس التجريبية.
+- جهات التنفيذ.
+- Item Groups.
+- Items وأسعارها في قائمة الأسعار الافتراضية.
+- ربط المنتجات والأقسام بجهات التنفيذ.
+- مستخدمين تجريبيين بأدوار Awamir.
+- عملاء وعناوين تجريبية مع إحداثيات Google Maps.
+
+## قيود MVP الحالية
+
+- لا يتم تعديل ERPNext Core.
+- `Sales Order` ينشأ كمسودة.
+- `Payment Entry` ينشأ كمسودة.
+- `Sales Invoice` تنشأ كمسودة.
+- ربط الدفعات بالفاتورة يتم داخل Awamir، ولا يتم ترحيل ledger فعلياً إلا بعد تفعيل submit لاحقاً.
+- إنشاء `Work Order` يتطلب BOM صالحاً للمنتج داخل ERPNext.
+- لا يوجد Payment Gateway خارجي.
+- الإشعارات داخل النظام فقط، ولا توجد Push Notifications حالياً.
+
+## نشر Docker مختصر
+
+قبل أي `migrate` على site فعلي:
+
+```bash
+bench --site hrms.localhost backup --with-files
+bench --site hrms.localhost migrate
+bench --site hrms.localhost clear-cache
+bench restart
+```
+
+نظف ملفات macOS المخفية قبل النشر:
+
+```bash
+scripts/clean_macos_files.sh
+find backend -name '._*' -o -name '.DS_Store'
+```
+
+يمكن تشغيله من API محمية لمدير النظام فقط:
+
+```http
+POST /api/method/awamir_plus.api.demo.seed_demo_data
+```
+
+كلمة مرور المستخدمين التجريبيين الجدد يمكن تمريرها عبر `demo_password` أو ضبطها في `site_config.json` باسم `awamir_demo_password`. السكربت لا يعيد ضبط كلمات مرور المستخدمين الموجودين إلا عند تمرير `reset_passwords=1`.
+
 ## الاختبارات والتحقق
 
 فحص البنية محلياً بدون bench:
@@ -204,4 +268,3 @@ bench --site your-site.local run-tests --app awamir_plus
 - التخصيص الوحيد على ERPNext القياسي هو Custom Fields على `Address` لحفظ رابط Google Maps والإحداثيات.
 - APIs المحاسبية تنشئ مستندات ERPNext الأصلية عند استدعائها داخل بيئة ERPNext مضبوطة.
 - يجب ضبط الحسابات الافتراضية المطلوبة من ERPNext مثل حسابات الدفع وطرق الدفع قبل التشغيل الإنتاجي.
-
