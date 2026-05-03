@@ -37,6 +37,7 @@ def get_my_daily_cash_closure(closure_type=None, date=None):
         closure = frappe.get_doc("Awamir Daily Cash Closure", closure_name)
         _attach_open_payments(closure)
         _recalculate_totals(closure.name)
+        frappe.db.commit()
         return get_cash_closure_detail(closure_name)
     closure = frappe.get_doc(
         {
@@ -50,6 +51,7 @@ def get_my_daily_cash_closure(closure_type=None, date=None):
     ).insert(ignore_permissions=True)
     _attach_open_payments(closure)
     _recalculate_totals(closure.name)
+    frappe.db.commit()
     return get_cash_closure_detail(closure.name)
 
 
