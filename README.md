@@ -17,6 +17,7 @@ awamir-plus/
   docs/
     API_OVERVIEW.md
     MVP_TEST_SCENARIO.md
+    PILOT_TEST_REPORT.md
     DEPLOY_DOCKER.md
     INSTALL_DOCKER.md
     API.md
@@ -76,6 +77,7 @@ Current MVP accounting behavior is intentionally conservative:
 - Payment allocation is tracked inside Awamir.
 - ERPNext ledger posting is not performed until submit settings are enabled later.
 - Work Order requires valid BOM setup in ERPNext.
+- Awamir product categories are filtered using `custom_is_awamir_category` or active Product Department Mapping.
 - No external payment gateway is integrated.
 - Notifications are in-system only; push notifications are not enabled yet.
 
@@ -96,6 +98,7 @@ Real ERPNext demo users are created by the seed script and use the configured de
 
 - [API Overview](docs/API_OVERVIEW.md)
 - [MVP Test Scenario](docs/MVP_TEST_SCENARIO.md)
+- [Pilot Test Report](docs/PILOT_TEST_REPORT.md)
 - [Docker Deployment](docs/DEPLOY_DOCKER.md)
 - [Project Plan](docs/PROJECT_PLAN.md)
 

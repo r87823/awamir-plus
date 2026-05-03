@@ -131,7 +131,7 @@ def get_available_drivers(branch_id=None):
                 "user_id": user.name,
                 "user": user.name,
                 "full_name": user.full_name or user.name,
-                "phone": user.mobile_no or user.phone or "",
+                "phone": _user_phone(user),
                 "email": user.email,
                 "branch_id": branch,
                 "branch": branch,
@@ -410,3 +410,7 @@ def _order_detail(order):
     from awamir_plus.api.orders import get_order_detail
 
     return get_order_detail(order)
+
+
+def _user_phone(user_doc):
+    return (getattr(user_doc, "mobile_no", None) or getattr(user_doc, "phone", None) or "").strip()

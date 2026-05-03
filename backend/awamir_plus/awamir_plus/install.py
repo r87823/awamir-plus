@@ -65,8 +65,20 @@ def create_custom_fields():
                     "fieldtype": "Float",
                     "insert_after": "custom_latitude",
                 },
-            ]
+            ],
+            "Item Group": [
+                {
+                    "fieldname": "custom_is_awamir_category",
+                    "label": "Is Awamir Plus Category",
+                    "fieldtype": "Check",
+                    "insert_after": "is_group",
+                    "description": "Show this item group in Awamir Plus mobile category selection.",
+                },
+            ],
         },
         ignore_validate=True,
     )
 
+
+def after_migrate():
+    create_custom_fields()

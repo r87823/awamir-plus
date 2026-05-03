@@ -25,5 +25,15 @@
     "insert_after": "custom_latitude",
     "label": "Longitude",
     "name": "Address-custom_longitude"
+  },
+  {
+    "description": "Show this item group in Awamir Plus mobile category selection.",
+    "doctype": "Custom Field",
+    "dt": "Item Group",
+    "fieldname": "custom_is_awamir_category",
+    "fieldtype": "Check",
+    "insert_after": "is_group",
+    "label": "Is Awamir Plus Category",
+    "name": "Item Group-custom_is_awamir_category"
   }
 ]

@@ -329,6 +329,10 @@ class _AccountingOrderCard extends StatelessWidget {
             const _Row(label: 'حالة Sales Invoice', value: 'Draft'),
           _SyncBadge(status: order.erpSyncStatus),
           if (showError) _Row(label: 'الخطأ', value: order.erpSyncError),
+          if (order.requiresWorkOrder && order.erpnextWorkOrderId.isEmpty)
+            const _AccountingHint(
+              text: 'لا يمكن إنشاء Work Order لأن المنتج لا يحتوي BOM',
+            ),
           const SizedBox(height: 10),
           Row(
             children: [
@@ -452,6 +456,34 @@ class _SyncBadge extends StatelessWidget {
       case ErpSyncStatus.notSynced:
         return (const Color(0xFFEFF1F5), AppColors.textMuted);
     }
+  }
+}
+
+class _AccountingHint extends StatelessWidget {
+  const _AccountingHint({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: AppColors.cream,
+        borderRadius: BorderRadius.circular(AppRadius.sm),
+        border: Border.all(color: AppColors.creamDark),
+      ),
+      child: Text(
+        text,
+        style: const TextStyle(
+          color: AppColors.textMuted,
+          fontSize: 12,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
   }
 }
 

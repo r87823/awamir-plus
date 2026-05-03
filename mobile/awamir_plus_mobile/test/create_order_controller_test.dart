@@ -84,7 +84,10 @@ Future<CreateOrderController> _createController() async {
       mockService: mockService,
       useMockData: true,
     ),
-    orderRepository: OrderRepository(mockService: mockService, useMockData: true),
+    orderRepository: OrderRepository(
+      mockService: mockService,
+      useMockData: true,
+    ),
   );
   await controller.loadCategories();
   return controller;

@@ -117,7 +117,7 @@ class _DriverOrderDetailScreenState extends State<DriverOrderDetailScreen> {
                   title: 'بيانات التوصيل',
                   rows: [
                     ('العميل', _order.customer),
-                    ('الجوال', _order.customerPhone),
+                    ('الجوال', _phoneText(_order.customerPhone)),
                     ('العنوان', _order.fulfillmentSummary),
                     ('رابط الموقع', _order.deliveryDetails.googleMapsUrl),
                     ('ملاحظات', _order.deliveryDetails.notes),
@@ -351,7 +351,10 @@ class _DriverOrderCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 10),
                 _CompactRow(label: 'العميل', value: order.customer),
-                _CompactRow(label: 'الجوال', value: order.customerPhone),
+                _CompactRow(
+                  label: 'الجوال',
+                  value: _phoneText(order.customerPhone),
+                ),
                 _CompactRow(label: 'العنوان', value: order.fulfillmentSummary),
                 _CompactRow(label: 'المنتجات', value: order.productSummary),
                 _CompactRow(
@@ -365,13 +368,16 @@ class _DriverOrderCard extends StatelessWidget {
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () {},
-                        icon: const Icon(Icons.call_outlined),
-                        label: const Text('اتصال'),
-                      ),
-                    ),
+                    if (order.customerPhone.trim().isNotEmpty)
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () {},
+                          icon: const Icon(Icons.call_outlined),
+                          label: const Text('اتصال'),
+                        ),
+                      )
+                    else
+                      const Expanded(child: _NoPhoneIndicator()),
                     const SizedBox(width: 8),
                     Expanded(
                       child: OutlinedButton.icon(
@@ -683,4 +689,32 @@ class _CompactRow extends StatelessWidget {
 
 String _pickupText(Order order) {
   return '${order.pickupDateText}${order.pickupTimeText.isEmpty ? '' : ' • ${order.pickupTimeText}'}';
+}
+
+String _phoneText(String value) {
+  return value.trim().isEmpty ? 'لا يوجد رقم جوال' : value;
+}
+
+class _NoPhoneIndicator extends StatelessWidget {
+  const _NoPhoneIndicator();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 44,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: AppColors.cream,
+        borderRadius: BorderRadius.circular(AppRadius.sm),
+        border: Border.all(color: AppColors.creamDark),
+      ),
+      child: const Text(
+        'لا يوجد رقم جوال',
+        style: TextStyle(
+          color: AppColors.textMuted,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
 }

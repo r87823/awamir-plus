@@ -512,7 +512,7 @@ class _DriverPickerDialog extends StatelessWidget {
                   leading: const Icon(Icons.delivery_dining),
                   title: Text(driver.fullName),
                   subtitle: Text(
-                    '${driver.phone} • ${driver.branchName} • ${driver.currentAssignedOrdersCount} طلبات',
+                    '${driver.phone.trim().isEmpty ? 'لا يوجد رقم جوال' : driver.phone} • ${driver.branchName} • ${driver.currentAssignedOrdersCount} طلبات',
                   ),
                   onTap: () => Navigator.pop(context, driver),
                 );

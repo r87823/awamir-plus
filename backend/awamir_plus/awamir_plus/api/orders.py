@@ -8,7 +8,13 @@ from awamir_plus.constants import (
     PAYMENT_STATUS_RECORDED,
     ROLE_BRANCH_SUPERVISOR,
 )
-from awamir_plus.permissions import get_user_branch, is_awamir_admin, require_branch_scope, require_roles
+from awamir_plus.permissions import (
+    get_user_branch,
+    get_user_production_department,
+    is_awamir_admin,
+    require_branch_scope,
+    require_roles,
+)
 from awamir_plus.utils import (
     assert_required,
     create_notification,
@@ -306,7 +312,9 @@ def get_my_orders():
 def get_order_detail(order):
     require_roles(["Awamir Branch Employee", "Awamir Branch Supervisor", "Awamir Distribution Manager", "Awamir Production User", "Awamir Driver", "Awamir Cashier", "Awamir Accountant", "Awamir System Admin"])
     doc = frappe.get_doc("Awamir Order Request", order)
-    if not is_awamir_admin() and "Awamir Driver" not in frappe.get_roles():
+    roles = frappe.get_roles()
+    production_scope = "Awamir Production User" in roles and doc.production_department == get_user_production_department()
+    if not is_awamir_admin() and "Awamir Driver" not in roles and not production_scope:
         require_branch_scope(doc.created_branch)
     data = doc.as_dict()
     if doc.production_department:
@@ -321,13 +329,21 @@ def get_order_detail(order):
             "department_code",
         )
     if doc.assigned_driver:
-        data["assigned_driver_name"] = frappe.db.get_value("User", doc.assigned_driver, "full_name") or doc.assigned_driver
+        driver = frappe.get_doc("User", doc.assigned_driver)
+        data["assigned_driver_name"] = driver.full_name or doc.assigned_driver
+        data["assigned_driver_phone"] = _user_phone(driver)
     data["status_logs"] = frappe.get_all("Awamir Order Status Log", filters={"order": doc.name}, fields=["*"], order_by="changed_at asc")
     data["payments"] = frappe.get_all("Awamir Order Payment", filters={"order": doc.name}, fields=["*"], order_by="created_at asc")
     data["delivery_assignment"] = frappe.get_all("Awamir Delivery Assignment", filters={"order": doc.name}, fields=["*"], limit=1)
     for assignment in data["delivery_assignment"]:
-        assignment["driver_name"] = frappe.db.get_value("User", assignment.driver, "full_name") or assignment.driver
+        driver = frappe.get_doc("User", assignment.driver)
+        assignment["driver_name"] = driver.full_name or assignment.driver
+        assignment["driver_phone"] = _user_phone(driver)
     return data
+
+
+def _user_phone(user_doc):
+    return (getattr(user_doc, "mobile_no", None) or getattr(user_doc, "phone", None) or "").strip()
 
 
 @frappe.whitelist()

@@ -7,9 +7,13 @@ from awamir_plus.utils import get_awamir_settings
 @frappe.whitelist()
 def get_categories():
     require_login()
+    category_names = _get_awamir_category_names()
+    if not category_names:
+        return []
+
     return frappe.get_all(
         "Item Group",
-        filters={"is_group": 0},
+        filters={"name": ["in", sorted(category_names)], "is_group": 0},
         fields=["name", "item_group_name", "parent_item_group"],
         order_by="item_group_name asc",
     )
@@ -18,6 +22,9 @@ def get_categories():
 @frappe.whitelist()
 def get_products_by_category(category):
     require_login()
+    if category not in _get_awamir_category_names():
+        return []
+
     return frappe.get_all(
         "Item",
         filters={"item_group": category, "disabled": 0},
@@ -82,3 +89,26 @@ def _with_department_name(mapping):
         "department_name",
     )
     return mapping
+
+
+def _get_awamir_category_names():
+    names = set()
+    if frappe.get_meta("Item Group").has_field("custom_is_awamir_category"):
+        names.update(
+            frappe.get_all(
+                "Item Group",
+                filters={"is_group": 0, "custom_is_awamir_category": 1},
+                pluck="name",
+            )
+        )
+
+    names.update(
+        row.item_group
+        for row in frappe.get_all(
+            "Awamir Product Department Mapping",
+            filters={"is_active": 1},
+            fields=["item_group"],
+        )
+        if row.item_group and frappe.db.exists("Item Group", row.item_group)
+    )
+    return names

@@ -42,6 +42,8 @@ This document records the operating scenario used to validate the current MVP.
 - ERPNext ledger posting is not active.
 - Payment allocation is tracked in Awamir.
 - Work Order requires ERPNext BOM setup.
+- During the pilot, Work Order remains disabled. If a user attempts to create it for an item without BOM, the expected message is: `لا يمكن إنشاء Work Order لأن المنتج لا يحتوي BOM`.
+- Non-cash payment methods must be tested before rollout: Card and Transfer payments should save `payment_reference` and appear in separated cash closure totals.
 - No Payment Gateway.
 - Notifications are in-system only.
 

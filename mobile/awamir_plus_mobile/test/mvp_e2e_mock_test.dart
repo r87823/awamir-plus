@@ -49,9 +49,9 @@ void main() {
     final paid = await fixture.orders.collectRemainingPayment(
       orderId: created.id,
       amount: ready.remainingAmount,
-      method: PaymentMethod.cash,
+      method: PaymentMethod.transfer,
       collectedBy: _employee,
-      transactionReference: 'MVP-MOCK-REMAINING',
+      transactionReference: 'TRF-MVP-MOCK-REMAINING',
     );
     expect(paid.remainingAmount, 0);
 
@@ -62,6 +62,12 @@ void main() {
     expect(delivered.status, OrderStatus.delivered);
 
     final closure = await fixture.payments.getMyDailyCashClosure(_employee);
+    expect(closure.methodTotal(PaymentMethod.card), greaterThanOrEqualTo(40));
+    expect(
+      closure.methodTotal(PaymentMethod.transfer),
+      greaterThanOrEqualTo(120),
+    );
+
     final submitted = await fixture.payments.submitCashClosure(
       closureId: closure.id,
       submittedBy: _employee,
@@ -92,6 +98,14 @@ void main() {
       submitted.id,
     )).where((payment) => payment.orderId == created.id).toList();
     expect(orderPayments, hasLength(2));
+    expect(
+      orderPayments.map((payment) => payment.method),
+      containsAll([PaymentMethod.card, PaymentMethod.transfer]),
+    );
+    expect(
+      orderPayments.map((payment) => payment.transactionReference),
+      containsAll(['CARD-MVP-MOCK-DEPOSIT', 'TRF-MVP-MOCK-REMAINING']),
+    );
 
     final postedPayments = <OrderPayment>[];
     for (final payment in orderPayments) {
@@ -190,8 +204,8 @@ CreateOrderRequest _createPickupRequest() {
   request.pickupDate = DateTime(2026, 5, 15);
   request.pickupTime = const TimeOfDay(hour: 18, minute: 30);
   request.depositAmount = 40;
-  request.paymentMethod = PaymentMethod.cash;
-  request.transactionReference = 'MVP-MOCK-DEPOSIT';
+  request.paymentMethod = PaymentMethod.card;
+  request.transactionReference = 'CARD-MVP-MOCK-DEPOSIT';
   request.setProductQuantity(
     const Product(
       id: 910,

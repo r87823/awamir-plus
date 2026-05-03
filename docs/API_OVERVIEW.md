@@ -17,6 +17,7 @@ Returns the current user, Awamir roles, branch, production department, and drive
 ## Products
 
 - `awamir_plus.api.products.get_categories`
+- يرجع فقط Item Groups التابعة لأوامر بلس، إما عبر الحقل `custom_is_awamir_category` أو عبر `Awamir Product Department Mapping` النشط.
 - `awamir_plus.api.products.get_products_by_category`
 - `awamir_plus.api.products.get_product_price`
 - `awamir_plus.api.products.get_product_department_mapping`

@@ -53,49 +53,81 @@ DEMO_USERS = [
         "full_name": "موظف فرع أوامر",
         "role": "Awamir Branch Employee",
         "branch": "فرع المروج",
+        "phone": "0501000001",
     },
     {
         "email": "supervisor@awamir.plus",
         "full_name": "مشرف فرع أوامر",
         "role": "Awamir Branch Supervisor",
         "branch": "فرع المروج",
+        "phone": "0501000002",
     },
     {
         "email": "distribution@awamir.plus",
         "full_name": "مسؤول توزيع أوامر",
         "role": "Awamir Distribution Manager",
         "branch": "فرع المروج",
+        "phone": "0501000003",
     },
     {
         "email": "production@awamir.plus",
-        "full_name": "موظف إنتاج أوامر",
+        "full_name": "موظف مصنع الحلويات",
         "role": "Awamir Production User",
         "branch": "فرع المروج",
         "production_department": "مصنع الحلويات",
+        "phone": "0501000004",
+    },
+    {
+        "email": "production.kitchen@awamir.plus",
+        "full_name": "موظف إنتاج المطبخ",
+        "role": "Awamir Production User",
+        "branch": "فرع الشرائع",
+        "production_department": "المطبخ",
+        "phone": "0501000005",
+    },
+    {
+        "email": "production.buffet@awamir.plus",
+        "full_name": "موظف إنتاج البوفيه",
+        "role": "Awamir Production User",
+        "branch": "فرع العزيزية",
+        "production_department": "قسم البوفيه",
+        "phone": "0501000006",
+    },
+    {
+        "email": "production.special@awamir.plus",
+        "full_name": "موظف الطلبات الخاصة",
+        "role": "Awamir Production User",
+        "branch": "فرع المروج",
+        "production_department": "قسم الطلبات الخاصة",
+        "phone": "0501000007",
     },
     {
         "email": "driver@awamir.plus",
         "full_name": "سائق أوامر",
         "role": "Awamir Driver",
         "branch": "فرع المروج",
+        "phone": "0505000001",
     },
     {
         "email": "cashier@awamir.plus",
         "full_name": "أمين صندوق أوامر",
         "role": "Awamir Cashier",
         "branch": "فرع المروج",
+        "phone": "0501000008",
     },
     {
         "email": "accountant@awamir.plus",
         "full_name": "محاسب أوامر",
         "role": "Awamir Accountant",
         "branch": "فرع المروج",
+        "phone": "0501000009",
     },
     {
         "email": "admin@awamir.plus",
         "full_name": "مدير نظام أوامر",
         "role": "Awamir System Admin",
         "branch": "فرع المروج",
+        "phone": "0501000010",
     },
 ]
 
@@ -268,6 +300,7 @@ def _ensure_item_groups(summary):
     parent = _get_or_create_root_item_group(summary)
     for group in DEMO_ITEM_GROUPS:
         if frappe.db.exists("Item Group", group):
+            _mark_awamir_item_group(group, summary)
             _bump(summary, "existing", "Item Group")
             continue
         frappe.get_doc(
@@ -276,9 +309,21 @@ def _ensure_item_groups(summary):
                 "item_group_name": group,
                 "parent_item_group": parent,
                 "is_group": 0,
+                "custom_is_awamir_category": 1,
             }
         ).insert(ignore_permissions=True)
         _bump(summary, "created", "Item Group")
+        _mark_awamir_item_group(group, summary)
+
+
+def _mark_awamir_item_group(group, summary):
+    if not _doctype_has_field("Item Group", "custom_is_awamir_category"):
+        return
+    if cint(frappe.db.get_value("Item Group", group, "custom_is_awamir_category")):
+        _bump(summary, "existing", "Awamir Item Group Flag")
+        return
+    frappe.db.set_value("Item Group", group, "custom_is_awamir_category", 1)
+    _bump(summary, "updated", "Awamir Item Group Flag")
 
 
 def _get_or_create_root_item_group(summary):
@@ -489,9 +534,11 @@ def _ensure_users(demo_password, reset_passwords, summary):
                 _set_password(row["email"], demo_password)
                 _bump(summary, "updated", "User password")
             _ensure_user_display_name(row["email"], row["full_name"], summary)
+            _ensure_user_contact(row["email"], row.get("phone"), summary)
             _bump(summary, "existing", "User")
 
         _ensure_user_role(row["email"], row["role"], summary)
+        _ensure_user_contact(row["email"], row.get("phone"), summary)
         _set_user_default(row["email"], "Branch", row.get("branch"), summary)
         _ensure_user_permission(row["email"], "Branch", row.get("branch"), summary)
         if row.get("production_department"):
@@ -531,6 +578,24 @@ def _ensure_user_display_name(user, full_name, summary):
     doc.last_name = last_name
     doc.save(ignore_permissions=True)
     _bump(summary, "updated", "User Name")
+
+
+def _ensure_user_contact(user, phone, summary):
+    if not phone:
+        return
+    doc = frappe.get_doc("User", user)
+    changed = False
+    if getattr(doc, "mobile_no", None) != phone:
+        doc.mobile_no = phone
+        changed = True
+    if _doctype_has_field("User", "phone") and getattr(doc, "phone", None) != phone:
+        doc.phone = phone
+        changed = True
+    if not changed:
+        _bump(summary, "existing", "User Contact")
+        return
+    doc.save(ignore_permissions=True)
+    _bump(summary, "updated", "User Contact")
 
 
 def _ensure_user_role(user, role, summary):

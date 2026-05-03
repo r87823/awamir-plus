@@ -8,6 +8,7 @@ app_license = "MIT"
 required_apps = ["frappe", "erpnext"]
 
 after_install = "awamir_plus.install.after_install"
+after_migrate = "awamir_plus.install.after_migrate"
 
 fixtures = [
     {
@@ -20,7 +21,7 @@ fixtures = [
     },
     {
         "dt": "Custom Field",
-        "filters": [["name", "in", ["Address-custom_google_maps_url", "Address-custom_latitude", "Address-custom_longitude"]]],
+        "filters": [["name", "in", ["Address-custom_google_maps_url", "Address-custom_latitude", "Address-custom_longitude", "Item Group-custom_is_awamir_category"]]],
     },
 ]
 

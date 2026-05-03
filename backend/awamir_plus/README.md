@@ -206,6 +206,7 @@ bench --site your-site.local execute awamir_plus.scripts.seed_demo_data.run
 - `Sales Invoice` تنشأ كمسودة.
 - ربط الدفعات بالفاتورة يتم داخل Awamir، ولا يتم ترحيل ledger فعلياً إلا بعد تفعيل submit لاحقاً.
 - إنشاء `Work Order` يتطلب BOM صالحاً للمنتج داخل ERPNext.
+- في نسخة MVP لا يتم تفعيل `Work Order` تلقائياً. يجب تجهيز BOM لكل منتج يحتاج تصنيع قبل التفعيل، وإلا سيرجع النظام الرسالة: `لا يمكن إنشاء Work Order لأن المنتج لا يحتوي BOM`.
 - لا يوجد Payment Gateway خارجي.
 - الإشعارات داخل النظام فقط، ولا توجد Push Notifications حالياً.
 
