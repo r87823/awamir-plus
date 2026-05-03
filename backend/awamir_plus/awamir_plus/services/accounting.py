@@ -363,7 +363,7 @@ def allocate_advance_payment_to_invoice(order_name):
         amount = min(frappe.utils.flt(payment.amount), remaining_to_allocate)
         if amount <= 0:
             continue
-        _link_payment_entry_to_invoice(payment.erpnext_payment_entry, order.erpnext_sales_invoice, amount)
+        erp_link_status = _link_payment_entry_to_invoice(payment.erpnext_payment_entry, order.erpnext_sales_invoice, amount)
         frappe.db.set_value("Awamir Order Payment", payment.name, "status", PAYMENT_STATUS_LINKED_TO_INVOICE)
         allocations.append(
             {
@@ -375,6 +375,7 @@ def allocate_advance_payment_to_invoice(order_name):
                 "allocated_amount": amount,
                 "allocated_at": now(),
                 "status": "allocated",
+                "erp_link_status": erp_link_status,
             }
         )
         remaining_to_allocate -= amount
@@ -422,6 +423,7 @@ def _allocation_rows(order, payments, invoice_total):
                 "allocated_amount": amount,
                 "allocated_at": now(),
                 "status": "allocated",
+                "erp_link_status": "recorded_previously",
             }
         )
         remaining -= amount
@@ -657,11 +659,13 @@ def _link_payment_entry_to_invoice(payment_entry_name, sales_invoice, amount):
     if not payment_entry_name:
         frappe.throw(_("الدفعة المرحلة لا تحتوي رقم Payment Entry من ERPNext."))
     if frappe.db.get_value("Sales Invoice", sales_invoice, "docstatus") != 1:
-        return
+        return "invoice_not_submitted"
     payment_entry = frappe.get_doc("Payment Entry", payment_entry_name)
     for reference in payment_entry.references:
         if reference.reference_doctype == "Sales Invoice" and reference.reference_name == sales_invoice:
-            return
+            return "already_linked_to_invoice"
+    if payment_entry.docstatus == 1:
+        return "deferred_submitted_payment_entry"
     payment_entry.append(
         "references",
         {
@@ -671,6 +675,7 @@ def _link_payment_entry_to_invoice(payment_entry_name, sales_invoice, amount):
         },
     )
     payment_entry.save(ignore_permissions=True)
+    return "linked_to_invoice"
 
 
 def _mark_order_partially_synced(order):
