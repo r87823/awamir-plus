@@ -136,6 +136,42 @@ Run these on a real iPhone or the iOS Simulator in real ERPNext mode:
 
 ## Latest Pilot Notes
 
+### iOS Simulator smoke - 2026-05-08
+
+This smoke test was run in real ERPNext mode on the local `iPhone 15 ESS` Simulator because the physical `rayan 15 pro` device was not visible to Flutter at the time of testing.
+
+Command:
+
+```bash
+cd mobile/awamir_plus_mobile
+flutter run -d 1C5D5B33-982F-4CFF-B163-467C1C07B62F \
+  --dart-define=USE_MOCK_DATA=false \
+  --dart-define=ERPNEXT_BASE_URL=https://awamirplus.r8787m.cc
+```
+
+Result:
+
+- The app built and launched successfully.
+- Flutter reported `Target native_assets required define SdkRoot but it was not provided`; this did not stop the build or launch.
+- Existing persisted session restored successfully for an accountant user.
+- Logout worked.
+- Login worked for `employee@awamir.plus`.
+- Branch employee dashboard loaded real ERPNext counts and role navigation.
+- New order flow loaded only Awamir categories:
+  - الحلويات
+  - الضيافة
+  - المطبخ
+  - طلبات البوفيه
+  - طلبات خاصة
+- Products loaded from ERPNext for `الحلويات`, including prices.
+- Selecting `كنافة` updated the selected count and total.
+- Customer search for `0500000001` found the seeded customer and filled `عميل أوامر التجريبي`.
+
+Physical iPhone note:
+
+- `flutter devices` did not detect `rayan 15 pro`; Flutter reported that the device must be unlocked, attached by cable, or available wirelessly with Developer Mode enabled.
+- Repeat the same smoke test on the physical iPhone once the device is visible.
+
 ### `ORD-2026-00086`
 
 This order was executed after validating that the iPhone app opens successfully in real ERPNext mode.
