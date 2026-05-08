@@ -57,7 +57,11 @@ def get_production_orders(status=None, limit_start=0, limit_page_length=None):
             },
             pluck="order",
         )
-        orders = sorted(set(orders).union(work_order_orders))
+        orders = [
+            order
+            for order in sorted(set(orders).union(work_order_orders))
+            if frappe.db.get_value("Awamir Order Request", order, "status") in allowed_statuses
+        ]
     pagination = get_pagination(limit_start, limit_page_length)
     orders = orders[pagination["start"]: pagination["start"] + pagination["page_length"]]
     from awamir_plus.api.orders import get_order_detail

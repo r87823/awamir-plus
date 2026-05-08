@@ -1193,8 +1193,17 @@ class ErpnextService implements AuthService {
       assignedDriverName: _string(data['assigned_driver_name']),
       erpnextCustomerId: _string(data['customer']),
       erpnextSalesOrderId: _string(data['erpnext_sales_order']),
+      erpnextSalesOrderDocstatus: _nullableInt(
+        data['erpnext_sales_order_docstatus'],
+      ),
       erpnextWorkOrderId: _string(data['erpnext_work_order']),
+      erpnextWorkOrderDocstatus: _nullableInt(
+        data['erpnext_work_order_docstatus'],
+      ),
       erpnextSalesInvoiceId: _string(data['erpnext_sales_invoice']),
+      erpnextSalesInvoiceDocstatus: _nullableInt(
+        data['erpnext_sales_invoice_docstatus'],
+      ),
       erpSyncStatus: _mapErpSyncStatus(_string(data['erp_sync_status'])),
       erpSyncError: _string(data['erp_sync_error']),
       erpSyncedAt: DateTime.tryParse(_string(data['erp_synced_at'])),
@@ -1302,6 +1311,9 @@ class ErpnextService implements AuthService {
       closureId: _string(data['cash_closure']),
       status: _mapOrderPaymentStatus(_string(data['status'])),
       erpnextPaymentEntryId: _string(data['erpnext_payment_entry']),
+      erpnextPaymentEntryDocstatus: _nullableInt(
+        data['erpnext_payment_entry_docstatus'],
+      ),
       postedToErpNext:
           _mapOrderPaymentStatus(_string(data['status'])) ==
           OrderPaymentStatus.postedToErpNext,
@@ -2028,6 +2040,13 @@ class ErpnextService implements AuthService {
   num _number(Object? value) {
     if (value is num) return value;
     return num.tryParse(_string(value)) ?? 0;
+  }
+
+  int? _nullableInt(Object? value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse(_string(value));
   }
 
   String _string(Object? value, {String fallback = ''}) {

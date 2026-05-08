@@ -1195,6 +1195,7 @@ void main() {
               'order': _orderPayload(
                 status: 'Delivered',
                 salesOrder: 'SAL-ORD-2026-00001',
+                salesOrderDocstatus: 1,
                 syncStatus: 'Partially Synced',
               ),
             },
@@ -1210,6 +1211,7 @@ void main() {
 
     expect(sentBody['order'], 'ORD-2026-00012');
     expect(order.erpnextSalesOrderId, 'SAL-ORD-2026-00001');
+    expect(order.erpnextSalesOrderDocstatus, 1);
     expect(order.erpSyncStatus, ErpSyncStatus.partiallySynced);
   });
 
@@ -1239,6 +1241,7 @@ void main() {
                   'received_by_role': 'branch_employee',
                   'cash_closure': 'CASH-2026-00001',
                   'erpnext_payment_entry': 'ACC-PAY-2026-00001',
+                  'erpnext_payment_entry_docstatus': 1,
                   'status': 'Posted To ERPNext',
                   'created_at': '2026-05-03 10:00:00',
                 },
@@ -1256,6 +1259,7 @@ void main() {
       expect(sentBody['payment'], 'PAY-0001');
       expect(payment.status, OrderPaymentStatus.postedToErpNext);
       expect(payment.erpnextPaymentEntryId, 'ACC-PAY-2026-00001');
+      expect(payment.erpnextPaymentEntryDocstatus, 1);
     },
   );
 
@@ -1271,6 +1275,7 @@ void main() {
                 status: 'Delivered',
                 salesOrder: 'SAL-ORD-2026-00001',
                 salesInvoice: 'ACC-SINV-2026-00001',
+                salesInvoiceDocstatus: 1,
                 syncStatus: 'Synced',
               ),
               'allocations': [
@@ -1655,8 +1660,11 @@ Map<String, dynamic> _orderPayload({
   String productionDepartment = '',
   String assignedDriver = '',
   String salesOrder = '',
+  int? salesOrderDocstatus,
   String workOrder = '',
+  int? workOrderDocstatus,
   String salesInvoice = '',
+  int? salesInvoiceDocstatus,
   String syncStatus = 'Not Synced',
   String syncError = '',
 }) {
@@ -1689,8 +1697,11 @@ Map<String, dynamic> _orderPayload({
     'deposit_amount': 100,
     'remaining_amount': 90,
     'erpnext_sales_order': salesOrder,
+    'erpnext_sales_order_docstatus': salesOrderDocstatus,
     'erpnext_work_order': workOrder,
+    'erpnext_work_order_docstatus': workOrderDocstatus,
     'erpnext_sales_invoice': salesInvoice,
+    'erpnext_sales_invoice_docstatus': salesInvoiceDocstatus,
     'erp_sync_status': syncStatus,
     'erp_sync_error': syncError,
     'erp_synced_at': syncStatus == 'Not Synced' ? null : '2026-05-03 12:00:00',

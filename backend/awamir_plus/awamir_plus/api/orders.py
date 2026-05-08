@@ -460,9 +460,10 @@ def get_order_detail(order):
         ]
     )
     doc = frappe.get_doc("Awamir Order Request", order)
-    production_scope = (
-        has_permission(PERMISSION_WORK_ORDER_VIEW_DEPARTMENT)
-        and doc.production_department == get_user_production_department()
+    user_production_department = get_user_production_department()
+    production_scope = has_permission(PERMISSION_WORK_ORDER_VIEW_DEPARTMENT) and (
+        doc.production_department == user_production_department
+        or _has_department_work_order(doc.name, user_production_department)
     )
     driver_scope = (
         has_permission(PERMISSION_DELIVERY_VIEW_ASSIGNED)
@@ -486,8 +487,16 @@ def get_order_detail(order):
         driver = frappe.get_doc("User", doc.assigned_driver)
         data["assigned_driver_name"] = driver.full_name or doc.assigned_driver
         data["assigned_driver_phone"] = _user_phone(driver)
+    data["erpnext_sales_order_docstatus"] = _linked_docstatus("Sales Order", doc.erpnext_sales_order)
+    data["erpnext_work_order_docstatus"] = _linked_docstatus("Work Order", doc.erpnext_work_order)
+    data["erpnext_sales_invoice_docstatus"] = _linked_docstatus("Sales Invoice", doc.erpnext_sales_invoice)
     data["status_logs"] = frappe.get_all("Awamir Order Status Log", filters={"order": doc.name}, fields=["*"], order_by="changed_at asc")
     data["payments"] = frappe.get_all("Awamir Order Payment", filters={"order": doc.name}, fields=["*"], order_by="created_at asc")
+    for payment in data["payments"]:
+        payment["erpnext_payment_entry_docstatus"] = _linked_docstatus(
+            "Payment Entry",
+            payment.get("erpnext_payment_entry"),
+        )
     if frappe.db.exists("DocType", "Awamir Department Work Order"):
         data["department_work_orders"] = frappe.get_all(
             "Awamir Department Work Order",
@@ -521,6 +530,25 @@ def get_order_detail(order):
     else:
         data["delivery_batches"] = []
     return data
+
+
+def _has_department_work_order(order, department):
+    if not department or not frappe.db.exists("DocType", "Awamir Department Work Order"):
+        return False
+    return bool(
+        frappe.db.exists(
+            "Awamir Department Work Order",
+            {"order": order, "department": department},
+        )
+    )
+
+
+def _linked_docstatus(doctype, name):
+    if not name:
+        return None
+    if not frappe.db.exists(doctype, name):
+        return None
+    return frappe.db.get_value(doctype, name, "docstatus")
 
 
 def _user_phone(user_doc):

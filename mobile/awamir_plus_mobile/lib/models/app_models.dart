@@ -894,8 +894,11 @@ class Order {
     this.requiresWorkOrder = false,
     this.erpnextCustomerId = '',
     this.erpnextSalesOrderId = '',
+    this.erpnextSalesOrderDocstatus,
     this.erpnextWorkOrderId = '',
+    this.erpnextWorkOrderDocstatus,
     this.erpnextSalesInvoiceId = '',
+    this.erpnextSalesInvoiceDocstatus,
     this.erpnextPaymentEntryIds = const [],
     this.erpSyncStatus = ErpSyncStatus.notSynced,
     this.erpSyncError = '',
@@ -945,8 +948,11 @@ class Order {
   final bool requiresWorkOrder;
   final String erpnextCustomerId;
   final String erpnextSalesOrderId;
+  final int? erpnextSalesOrderDocstatus;
   final String erpnextWorkOrderId;
+  final int? erpnextWorkOrderDocstatus;
   final String erpnextSalesInvoiceId;
+  final int? erpnextSalesInvoiceDocstatus;
   final List<String> erpnextPaymentEntryIds;
   final ErpSyncStatus erpSyncStatus;
   final String erpSyncError;
@@ -988,8 +994,11 @@ class Order {
     bool? requiresWorkOrder,
     String? erpnextCustomerId,
     String? erpnextSalesOrderId,
+    int? erpnextSalesOrderDocstatus,
     String? erpnextWorkOrderId,
+    int? erpnextWorkOrderDocstatus,
     String? erpnextSalesInvoiceId,
+    int? erpnextSalesInvoiceDocstatus,
     List<String>? erpnextPaymentEntryIds,
     ErpSyncStatus? erpSyncStatus,
     String? erpSyncError,
@@ -1043,9 +1052,15 @@ class Order {
       requiresWorkOrder: requiresWorkOrder ?? this.requiresWorkOrder,
       erpnextCustomerId: erpnextCustomerId ?? this.erpnextCustomerId,
       erpnextSalesOrderId: erpnextSalesOrderId ?? this.erpnextSalesOrderId,
+      erpnextSalesOrderDocstatus:
+          erpnextSalesOrderDocstatus ?? this.erpnextSalesOrderDocstatus,
       erpnextWorkOrderId: erpnextWorkOrderId ?? this.erpnextWorkOrderId,
+      erpnextWorkOrderDocstatus:
+          erpnextWorkOrderDocstatus ?? this.erpnextWorkOrderDocstatus,
       erpnextSalesInvoiceId:
           erpnextSalesInvoiceId ?? this.erpnextSalesInvoiceId,
+      erpnextSalesInvoiceDocstatus:
+          erpnextSalesInvoiceDocstatus ?? this.erpnextSalesInvoiceDocstatus,
       erpnextPaymentEntryIds:
           erpnextPaymentEntryIds ?? this.erpnextPaymentEntryIds,
       erpSyncStatus: erpSyncStatus ?? this.erpSyncStatus,
@@ -1268,6 +1283,7 @@ class OrderPayment {
     this.closureId = '',
     this.status = OrderPaymentStatus.recordedByEmployee,
     this.erpnextPaymentEntryId = '',
+    this.erpnextPaymentEntryDocstatus,
     this.erpSyncStatus = ErpSyncStatus.notSynced,
     this.erpSyncError = '',
     this.erpSyncedAt,
@@ -1289,6 +1305,7 @@ class OrderPayment {
   final String closureId;
   final OrderPaymentStatus status;
   final String erpnextPaymentEntryId;
+  final int? erpnextPaymentEntryDocstatus;
   final ErpSyncStatus erpSyncStatus;
   final String erpSyncError;
   final DateTime? erpSyncedAt;
@@ -1301,6 +1318,7 @@ class OrderPayment {
     String? closureId,
     OrderPaymentStatus? status,
     String? erpnextPaymentEntryId,
+    int? erpnextPaymentEntryDocstatus,
     ErpSyncStatus? erpSyncStatus,
     String? erpSyncError,
     DateTime? erpSyncedAt,
@@ -1324,6 +1342,8 @@ class OrderPayment {
       status: status ?? this.status,
       erpnextPaymentEntryId:
           erpnextPaymentEntryId ?? this.erpnextPaymentEntryId,
+      erpnextPaymentEntryDocstatus:
+          erpnextPaymentEntryDocstatus ?? this.erpnextPaymentEntryDocstatus,
       erpSyncStatus: erpSyncStatus ?? this.erpSyncStatus,
       erpSyncError: clearErpSyncError ? '' : erpSyncError ?? this.erpSyncError,
       erpSyncedAt: erpSyncedAt ?? this.erpSyncedAt,

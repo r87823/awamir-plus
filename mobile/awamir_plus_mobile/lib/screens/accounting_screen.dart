@@ -20,6 +20,14 @@ class AccountingScreen extends StatefulWidget {
 
 class _AccountingScreenState extends State<AccountingScreen> {
   var _tab = _AccountingTab.salesOrders;
+  final _searchController = TextEditingController();
+  var _query = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -75,6 +83,25 @@ class _AccountingScreenState extends State<AccountingScreen> {
                         );
                       }).toList(),
                     ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: _searchController,
+                      onChanged: (value) => setState(() => _query = value),
+                      decoration: InputDecoration(
+                        labelText: 'بحث برقم الطلب أو العميل أو المستند',
+                        prefixIcon: const Icon(Icons.search),
+                        suffixIcon: _query.trim().isEmpty
+                            ? null
+                            : IconButton(
+                                tooltip: 'مسح البحث',
+                                onPressed: () {
+                                  _searchController.clear();
+                                  setState(() => _query = '');
+                                },
+                                icon: const Icon(Icons.close),
+                              ),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -103,7 +130,7 @@ class _AccountingScreenState extends State<AccountingScreen> {
   List<Widget> _itemsForTab() {
     switch (_tab) {
       case _AccountingTab.salesOrders:
-        return widget.controller.ordersNeedingSalesOrder
+        return _filterOrders(widget.controller.ordersNeedingSalesOrder)
             .map(
               (order) => _AccountingOrderCard(
                 order: order,
@@ -121,7 +148,7 @@ class _AccountingScreenState extends State<AccountingScreen> {
             )
             .toList();
       case _AccountingTab.payments:
-        return widget.controller.paymentsReadyForErpPosting
+        return _filterPayments(widget.controller.paymentsReadyForErpPosting)
             .map(
               (payment) => _PaymentPostingCard(
                 payment: payment,
@@ -135,7 +162,7 @@ class _AccountingScreenState extends State<AccountingScreen> {
             )
             .toList();
       case _AccountingTab.invoices:
-        return widget.controller.ordersNeedingSalesInvoice
+        return _filterOrders(widget.controller.ordersNeedingSalesInvoice)
             .map(
               (order) => _AccountingOrderCard(
                 order: order,
@@ -153,7 +180,7 @@ class _AccountingScreenState extends State<AccountingScreen> {
             )
             .toList();
       case _AccountingTab.allocations:
-        return widget.controller.invoicesNeedingAdvanceAllocation
+        return _filterOrders(widget.controller.invoicesNeedingAdvanceAllocation)
             .map(
               (order) => _AccountingOrderCard(
                 order: order,
@@ -178,7 +205,7 @@ class _AccountingScreenState extends State<AccountingScreen> {
             )
             .toList();
       case _AccountingTab.errors:
-        return widget.controller.accountingSyncErrors
+        return _filterOrders(widget.controller.accountingSyncErrors)
             .map(
               (order) => _AccountingOrderCard(
                 order: order,
@@ -194,6 +221,46 @@ class _AccountingScreenState extends State<AccountingScreen> {
             )
             .toList();
     }
+  }
+
+  List<Order> _filterOrders(List<Order> orders) {
+    final query = _normalizedQuery;
+    if (query.isEmpty) return orders;
+    return orders.where((order) {
+      return [
+        order.id,
+        order.customer,
+        order.customerPhone,
+        order.erpnextSalesOrderId,
+        order.erpnextWorkOrderId,
+        order.erpnextSalesInvoiceId,
+        order.erpnextPaymentEntryIds.join(' '),
+        order.erpSyncStatus.label,
+        order.erpSyncError,
+      ].any((value) => _matches(value, query));
+    }).toList();
+  }
+
+  List<OrderPayment> _filterPayments(List<OrderPayment> payments) {
+    final query = _normalizedQuery;
+    if (query.isEmpty) return payments;
+    return payments.where((payment) {
+      return [
+        payment.id,
+        payment.orderId,
+        payment.customer,
+        payment.amount.toString(),
+        payment.method.label,
+        payment.status.label,
+        payment.erpnextPaymentEntryId,
+      ].any((value) => _matches(value, query));
+    }).toList();
+  }
+
+  String get _normalizedQuery => _query.trim().toLowerCase();
+
+  bool _matches(String value, String query) {
+    return value.toLowerCase().contains(query);
   }
 
   int _countForTab(_AccountingTab tab) {
@@ -283,6 +350,19 @@ extension _AccountingTabDetails on _AccountingTab {
   }
 }
 
+String _docStatusLabel(int? docstatus) {
+  switch (docstatus) {
+    case 0:
+      return 'Draft';
+    case 1:
+      return 'Submitted';
+    case 2:
+      return 'Cancelled';
+    default:
+      return 'غير معروف';
+  }
+}
+
 class _AccountingOrderCard extends StatelessWidget {
   const _AccountingOrderCard({
     required this.order,
@@ -319,14 +399,20 @@ class _AccountingOrderCard extends StatelessWidget {
           _Row(label: 'المتبقي', value: formatCurrency(order.remainingAmount)),
           _Row(label: 'Sales Order', value: order.erpnextSalesOrderId),
           if (order.erpnextSalesOrderId.isNotEmpty)
-            const _Row(label: 'حالة Sales Order', value: 'Draft'),
+            _Row(
+              label: 'حالة Sales Order',
+              value: _docStatusLabel(order.erpnextSalesOrderDocstatus),
+            ),
           _Row(
             label: 'Payment Entry',
             value: order.erpnextPaymentEntryIds.join(', '),
           ),
           _Row(label: 'Sales Invoice', value: order.erpnextSalesInvoiceId),
           if (order.erpnextSalesInvoiceId.isNotEmpty)
-            const _Row(label: 'حالة Sales Invoice', value: 'Draft'),
+            _Row(
+              label: 'حالة Sales Invoice',
+              value: _docStatusLabel(order.erpnextSalesInvoiceDocstatus),
+            ),
           _SyncBadge(status: order.erpSyncStatus),
           if (showError) _Row(label: 'الخطأ', value: order.erpSyncError),
           if (order.requiresWorkOrder && order.erpnextWorkOrderId.isEmpty)
@@ -387,7 +473,10 @@ class _PaymentPostingCard extends StatelessWidget {
           _Row(label: 'الحالة', value: payment.status.label),
           _Row(label: 'Payment Entry', value: payment.erpnextPaymentEntryId),
           if (payment.erpnextPaymentEntryId.isNotEmpty)
-            const _Row(label: 'حالة Payment Entry', value: 'Draft'),
+            _Row(
+              label: 'حالة Payment Entry',
+              value: _docStatusLabel(payment.erpnextPaymentEntryDocstatus),
+            ),
           const SizedBox(height: 10),
           ElevatedButton.icon(
             onPressed: onAction,

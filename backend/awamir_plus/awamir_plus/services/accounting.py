@@ -897,6 +897,11 @@ def _serialize_payment(payment_name):
     payment = frappe.get_doc("Awamir Order Payment", payment_name).as_dict()
     payment["order_number"] = frappe.db.get_value("Awamir Order Request", payment.order, "order_number")
     payment["customer_name"] = frappe.db.get_value("Customer", payment.customer, "customer_name") if payment.customer else None
+    payment["erpnext_payment_entry_docstatus"] = (
+        frappe.db.get_value("Payment Entry", payment.erpnext_payment_entry, "docstatus")
+        if payment.erpnext_payment_entry and frappe.db.exists("Payment Entry", payment.erpnext_payment_entry)
+        else None
+    )
     return payment
 
 
