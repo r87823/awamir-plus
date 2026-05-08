@@ -169,8 +169,18 @@ Result:
 
 Physical iPhone note:
 
-- `flutter devices` did not detect `rayan 15 pro`; Flutter reported that the device must be unlocked, attached by cable, or available wirelessly with Developer Mode enabled.
-- Repeat the same smoke test on the physical iPhone once the device is visible.
+- `flutter devices` initially did not detect `rayan 15 pro`; Flutter reported that the device must be unlocked, attached by cable, or available wirelessly with Developer Mode enabled.
+- After reconnecting/unlocking the device, `rayan 15 pro` appeared as `00008130-0014643A26F2001C`.
+- The same real-mode Flutter run completed build, automatic signing, install, launch, and VM Service startup on the physical iPhone:
+
+```bash
+flutter run -d 00008130-0014643A26F2001C \
+  --dart-define=USE_MOCK_DATA=false \
+  --dart-define=ERPNEXT_BASE_URL=https://awamirplus.r8787m.cc
+```
+
+- The app launched successfully on the physical device.
+- UI interaction still needs to be completed manually on the iPhone screen because the current automation tools can inspect the Simulator UI, not the physical device UI.
 
 ### `ORD-2026-00086`
 
