@@ -11,8 +11,31 @@ ERPNEXT_BASE_URL="${ERPNEXT_BASE_URL:-https://awamirplus.r8787m.cc}"
 USE_MOCK_DATA="${USE_MOCK_DATA:-false}"
 RUN_CLEAN="${RUN_CLEAN:-0}"
 UNINSTALL_OLD="${UNINSTALL_OLD:-1}"
+TERMINATE_RUNNERS="${TERMINATE_RUNNERS:-1}"
 
 cd "$MOBILE_DIR"
+
+terminate_runner_processes() {
+  local pids
+  pids="$(
+    xcrun devicectl device info processes --device "$DEVICE_ID" 2>/dev/null \
+      | awk '/Runner\.app\/Runner/ {print $1}' \
+      || true
+  )"
+
+  if [[ -z "$pids" ]]; then
+    return 0
+  fi
+
+  echo "==> Terminating stale Runner processes: $pids"
+  local pid
+  for pid in $pids; do
+    xcrun devicectl device process terminate \
+      --device "$DEVICE_ID" \
+      --pid "$pid" \
+      --kill || true
+  done
+}
 
 echo "==> Target device: $DEVICE_ID"
 flutter devices
@@ -22,6 +45,10 @@ if [[ "$UNINSTALL_OLD" == "1" ]]; then
   xcrun devicectl device uninstall app \
     --device "$DEVICE_ID" \
     "$OLD_BUNDLE_ID" || true
+fi
+
+if [[ "$TERMINATE_RUNNERS" == "1" ]]; then
+  terminate_runner_processes
 fi
 
 if [[ "$RUN_CLEAN" == "1" ]]; then
@@ -47,5 +74,15 @@ xcrun devicectl device process launch \
   --device "$DEVICE_ID" \
   --terminate-existing \
   "$BUNDLE_ID"
+
+sleep 2
+
+echo "==> Installed Awamir apps on device"
+xcrun devicectl device info apps --device "$DEVICE_ID" \
+  | grep -E "Name|Bundle Identifier|Awamir|$BUNDLE_ID" || true
+
+echo "==> Running Awamir process check"
+xcrun devicectl device info processes --device "$DEVICE_ID" \
+  | grep -E "PID|Runner\\.app/Runner" || true
 
 echo "==> Installed and launched $BUNDLE_ID in release mode."
