@@ -453,7 +453,7 @@ def get_payments_ready_for_erp_posting(limit_start=0, limit_page_length=None):
     rows = frappe.get_all(
         "Awamir Order Payment",
         filters={"status": ["in", list(POSTABLE_PAYMENT_STATUSES)]},
-        fields=["name", "cash_closure"],
+        fields=["name", "order", "cash_closure"],
         order_by="created_at asc",
         **get_pagination(limit_start, limit_page_length),
     )
