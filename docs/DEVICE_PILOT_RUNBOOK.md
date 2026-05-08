@@ -111,6 +111,9 @@ Run these on a real iPhone or the iOS Simulator in real ERPNext mode:
 | Pickup order with Transfer | Payment reference saved, closure totals include Transfer |
 | Delivery order with driver | Assigned, picked up, out for delivery, delivered |
 | Delivery failed | Requires reason and ends in `Delivery Failed` |
+| Delivery proof capture | Delivery action accepts proof note/reference and keeps final status valid |
+| Production capacity warning | Department work order shows daily capacity and warning when open load exceeds capacity |
+| Delivery batch assignment | Ready delivery orders can be batched and assigned to a driver from Distribution |
 | Supervisor reject | Requires reason and creates status log |
 | Supervisor return for edit | Requires note and creates status log |
 | Cashier accept no difference | Payments become accepted/ready for posting |
@@ -236,6 +239,9 @@ For each pilot order, capture:
 - Payment Entry numbers.
 - Sales Invoice number.
 - Final `erp_sync_status`.
+- Production department capacity warning state, if any.
+- Delivery proof note/reference, if delivery or pickup proof was entered.
+- Delivery batch number, if the order was assigned through a batch.
 - Any UX issue or confusing message.
 
 ## Stop Conditions

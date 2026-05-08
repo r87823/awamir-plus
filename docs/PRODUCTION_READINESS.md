@@ -37,6 +37,8 @@ flutter run \
 - App launches on a real iPhone.
 - Login works for every pilot role.
 - The app can complete at least one clean order without using System Admin for operational steps.
+- Production department work orders show capacity information and warnings when capacity is exceeded.
+- Delivery and pickup completion can record proof notes/references without blocking normal completion.
 - Accounting screen search can find orders and payments by order number.
 - ERPNext document status is visible as `Draft`, `Submitted`, or `Cancelled`.
 
@@ -75,6 +77,8 @@ Do not enable `submit_work_order` until BOM readiness has been validated for the
 
 - Verify ERPNext ledger outstanding after every invoice allocation scenario.
 - Add BOM coverage only for products selected for Work Order activation.
+- Replace proof note/reference entry with camera upload, signature, or QR capture after the pilot confirms the field workflow.
+- Decide whether Delivery Batches should remain operational units or become part of a larger Trip management module.
 - Add push notifications only after internal notification flows are stable.
 - Add TestFlight distribution after real-device smoke testing is stable.
 

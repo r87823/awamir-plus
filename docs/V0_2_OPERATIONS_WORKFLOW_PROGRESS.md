@@ -76,6 +76,14 @@ This document tracks the first implementation slice of the expanded operations w
 - Added operational UI surfaces:
   - Department work orders inside production order details.
   - Delivery batch preparation and driver assignment inside Distribution.
+- Added Flutter production capacity visibility:
+  - Department daily capacity.
+  - Open work order count.
+  - Capacity warning banner inside production work order cards.
+- Added Flutter proof-of-delivery capture UI:
+  - Pickup delivery proof note/reference entry.
+  - Driver delivery proof note/reference entry.
+  - Backward-compatible mock and ERPNext service contracts.
 - Added Flutter tests for:
   - Department work order idempotency in mock mode.
   - Department work order status updates.
@@ -161,7 +169,8 @@ Status filters were added where useful for operational queues.
 
 ## Remaining v0.2 Work
 
-- Run `bench migrate` on the Docker ERPNext site after taking a backup.
-- Smoke test the new production and delivery batch UI against the real server.
+- Smoke test the new production capacity warning and delivery proof UI from a real iPhone.
+- Smoke test delivery batch assignment from Distribution against the real server after the next mobile install.
+- Confirm production department capacities with the operations team before the expanded pilot.
 - Optional future expansion: Trip management above Delivery Batches.
-- Optional future expansion: signature/QR capture UI widgets for proof of delivery.
+- Optional future expansion: signature, camera image upload, and QR capture widgets for proof of delivery.
