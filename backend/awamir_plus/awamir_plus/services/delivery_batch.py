@@ -4,6 +4,8 @@ from frappe import _
 from awamir_plus.constants import (
     DELIVERY_BATCH_STATUS_ASSIGNED,
     DELIVERY_BATCH_STATUS_DRAFT,
+    DELIVERY_FLOW_STATUS_ASSIGNED_TO_DRIVER,
+    ORDER_STATUS_ASSIGNED_TO_DRIVER,
     ORDER_STATUS_READY_FOR_DELIVERY,
 )
 from awamir_plus.utils import create_notification, make_status_log, now
@@ -55,6 +57,7 @@ def assign_batch_to_driver(batch, driver):
     doc.assigned_by = frappe.session.user
     doc.assigned_at = now()
     doc.status = DELIVERY_BATCH_STATUS_ASSIGNED
+    _assign_batch_orders_to_driver(doc, driver)
     doc.save(ignore_permissions=True)
     create_notification(
         driver,
@@ -126,3 +129,60 @@ def _batch_order_row(order):
         "customer_phone": order.customer_phone,
         "status": order.status,
     }
+
+
+def _assign_batch_orders_to_driver(batch, driver):
+    driver_name = frappe.db.get_value("User", driver, "full_name") or driver
+    for row in batch.orders:
+        order_doc = frappe.get_doc("Awamir Order Request", row.order)
+        if order_doc.status == ORDER_STATUS_ASSIGNED_TO_DRIVER and order_doc.assigned_driver == driver:
+            row.status = order_doc.status
+            continue
+        if order_doc.status != ORDER_STATUS_READY_FOR_DELIVERY:
+            continue
+
+        old_status = order_doc.status
+        order_doc.status = ORDER_STATUS_ASSIGNED_TO_DRIVER
+        order_doc.delivery_status = DELIVERY_FLOW_STATUS_ASSIGNED_TO_DRIVER
+        order_doc.assigned_driver = driver
+        order_doc.save(ignore_permissions=True)
+        row.status = order_doc.status
+
+        _ensure_delivery_assignment(order_doc, driver)
+        make_status_log(
+            order_doc.name,
+            old_status,
+            order_doc.status,
+            _("Assigned to driver {0} through delivery batch {1}.").format(driver_name, batch.batch_number),
+        )
+        create_notification(
+            order_doc.created_by_user,
+            _("Driver Assigned"),
+            _("Order {0} assigned to driver {1}.").format(order_doc.order_number, driver_name),
+            order_doc.name,
+            "driver_assigned",
+        )
+
+
+def _ensure_delivery_assignment(order_doc, driver):
+    existing = frappe.db.get_value(
+        "Awamir Delivery Assignment",
+        {
+            "order": order_doc.name,
+            "driver": driver,
+            "status": ["!=", "Delivery Failed"],
+        },
+        "name",
+    )
+    if existing:
+        return existing
+    return frappe.get_doc(
+        {
+            "doctype": "Awamir Delivery Assignment",
+            "order": order_doc.name,
+            "driver": driver,
+            "assigned_by": frappe.session.user,
+            "assigned_at": now(),
+            "status": ORDER_STATUS_ASSIGNED_TO_DRIVER,
+        }
+    ).insert(ignore_permissions=True).name
