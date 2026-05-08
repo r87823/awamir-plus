@@ -127,6 +127,36 @@ Run these on a real iPhone or the iOS Simulator in real ERPNext mode:
 | Returned order | `ORD-2026-00083` | `Returned For Edit` |
 | Delivery failed | `ORD-2026-00084` | `Delivery Failed` |
 | Delivery fee retest | `ORD-2026-00085` | Delivered and `Synced` |
+| Full pickup pilot after iPhone launch validation | `ORD-2026-00086` | Delivered, closure closed, accounting synced |
+
+## Latest Pilot Notes
+
+### `ORD-2026-00086`
+
+This order was executed after validating that the iPhone app opens successfully in real ERPNext mode.
+
+Result:
+
+- Order status: `Delivered`
+- ERP sync status inside Awamir: `Synced`
+- Cash closure: `CASH-2026-00046`
+- Cash closure status: `Closed`
+- Sales Order: `SAL-ORD-2026-00063`, `docstatus = 1`
+- Payment Entries:
+  - `ACC-PAY-2026-00092`, `docstatus = 1`, amount `100`
+  - `ACC-PAY-2026-00093`, `docstatus = 1`, amount `250`
+- Sales Invoice: `ACC-SINV-2026-00036`, `docstatus = 1`
+- Work Order: not created, as expected while `submit_work_order = 0`
+
+Operational note:
+
+- The first production update attempt used a production user that was not linked to the assigned production department. The API correctly rejected the update with a permission error. Continuing with the correct production user for `قسم الطلبات الخاصة` completed the flow successfully.
+
+Accounting note:
+
+- Awamir marked the order as `Synced` after linking both payments internally to the invoice.
+- ERPNext still showed `ACC-SINV-2026-00036` with `outstanding_amount = 350` because the Payment Entries were already submitted and the current allocation logic records the link inside Awamir instead of modifying submitted ERPNext ledger allocations.
+- This should be reviewed in a later accounting refinement phase before relying on ERPNext invoice outstanding as the sole paid/unpaid source.
 
 ## Delivery Fee Accounting Check
 
