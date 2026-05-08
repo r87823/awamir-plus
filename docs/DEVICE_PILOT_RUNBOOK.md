@@ -188,11 +188,19 @@ Issue:
 
 - On `rayan 15 pro`, the debug build installed but stopped immediately with a white screen and native `EXC_BAD_ACCESS`.
 - The crash happened before Flutter rendered the first app screen.
+- A second installed app named `Awamir` with the old bundle id `com.awamirplus.awamirMobile` was also present on the phone, which could make it easy to open the stale build instead of the current app.
+- Launching a Debug build from the home screen without Flutter tooling can also crash with:
+
+```text
+Cannot create a FlutterEngine instance in debug mode without Flutter tooling or Xcode.
+```
 
 Fix:
 
 - Running once with `--no-enable-impeller` confirmed the crash was renderer-related.
 - `ios/Runner/Info.plist` now sets `FLTEnableImpeller` to `false` so iOS builds use the non-Impeller renderer by default.
+- The stale `com.awamirplus.awamirMobile` app was removed from the device. The current app is `Awamir Plus Mobile` with bundle id `com.awamir.plus`.
+- For manual iPhone testing from the app icon, install a Release build instead of launching a Debug build from the home screen.
 
 Validation:
 
@@ -206,6 +214,28 @@ flutter run -d 00008130-0014643A26F2001C \
 - `flutter analyze` passed.
 - `flutter test` passed.
 - Flutter still prints `Target native_assets required define SdkRoot but it was not provided`; this warning did not block launch.
+
+Release install for manual icon testing:
+
+```bash
+flutter run --release -d 00008130-0014643A26F2001C \
+  --dart-define=USE_MOCK_DATA=false \
+  --dart-define=ERPNEXT_BASE_URL=https://awamirplus.r8787m.cc
+```
+
+Standalone launch check:
+
+```bash
+xcrun devicectl device process launch \
+  --device 00008130-0014643A26F2001C \
+  --terminate-existing \
+  com.awamir.plus
+```
+
+Result:
+
+- Release build installed and launched successfully.
+- Standalone launch kept a `Runner` process alive on the iPhone.
 
 ### `ORD-2026-00086`
 
