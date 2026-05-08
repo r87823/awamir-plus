@@ -223,3 +223,65 @@ No workflow-level changes were made.
 - Run another device-based test with branch staff using the Flutter UI, focusing on speed of product search, payment entry, and delivery actions.
 - Add more real driver phone numbers before wider rollout.
 - Define cashier handling policy for over/short differences before enabling accounting submit.
+
+## Post-Submit Remaining Validation - 2026-05-08
+
+This follow-up was run after controlled submit activation for Sales Order, Payment Entry, and Sales Invoice. `submit_work_order` stayed disabled.
+
+### Scenarios Completed
+
+| Scenario | Order | Result |
+| --- | --- | --- |
+| Full pickup E2E from Flutter/iOS flow | `ORD-2026-00078` | Delivered, closure accepted, accounting synced |
+| Delivery success with driver closure | `ORD-2026-00079` | Delivered, driver closure accepted; exposed delivery fee accounting gap |
+| Card payment pickup | `ORD-2026-00080` | Delivered, Card reference saved, accounting synced |
+| Transfer payment pickup | `ORD-2026-00081` | Delivered, Transfer reference saved, accounting synced |
+| Supervisor rejection | `ORD-2026-00082` | Rejected with reason |
+| Supervisor return for edit | `ORD-2026-00083` | Returned For Edit with note |
+| Delivery failed | `ORD-2026-00084` | Delivery Failed with reason |
+| Delivery fee accounting retest | `ORD-2026-00085` | Delivered, delivery fee included in ERPNext accounting, synced |
+
+### Key Accounting Results
+
+`ORD-2026-00078` completed the full submitted accounting path:
+
+- Sales Order: `SAL-ORD-2026-00058`, `docstatus = 1`
+- Payment Entries: `ACC-PAY-2026-00086`, `ACC-PAY-2026-00087`, both `docstatus = 1`
+- Sales Invoice: `ACC-SINV-2026-00032`, `docstatus = 1`
+- Final sync: `Synced`
+- Payments: `Linked To Invoice`
+
+Card and Transfer payment coverage:
+
+- `ORD-2026-00080`: `Card`, reference `CARD-PILOT-001`, Sales Order `SAL-ORD-2026-00060`, Sales Invoice `ACC-SINV-2026-00033`, synced.
+- `ORD-2026-00081`: `Transfer`, reference `TR-PILOT-001`, Sales Order `SAL-ORD-2026-00061`, Sales Invoice `ACC-SINV-2026-00034`, synced.
+- Employee closure `CASH-2026-00043` separated totals correctly: Cash `20.0`, Card `160.0`, Transfer `160.0`, Other `0.0`, Total `340.0`.
+
+### Delivery Fee Issue And Fix
+
+During the delivery scenario `ORD-2026-00079`, ERPNext rejected one Payment Entry because the order collected product amount plus delivery fee, while the generated Sales Order and Sales Invoice only contained product rows. The error was:
+
+`المبلغ المخصص لا يمكن أن يكون أكبر من المبلغ المستحق`
+
+Fix applied in `awamir_plus.services.accounting`:
+
+- If `Awamir Order Request.delivery_fee > 0`, add a non-stock ERPNext item row `AWAMIR-DELIVERY-FEE` to the Sales Order.
+- Add the same delivery fee row to the Sales Invoice.
+- Create the delivery fee item automatically if missing, under `Services` when available.
+
+Retest result:
+
+- Order: `ORD-2026-00085`
+- Sales Order: `SAL-ORD-2026-00062`, `docstatus = 1`, grand total `110.0`
+- Sales Invoice: `ACC-SINV-2026-00035`, `docstatus = 1`, grand total `110.0`
+- Payment Entries: `ACC-PAY-2026-00090` for `20.0`, `ACC-PAY-2026-00091` for `90.0`, both `docstatus = 1`
+- Delivery fee item: `AWAMIR-DELIVERY-FEE`, amount `15.0`
+- Final sync: `Synced`
+- Employee closure: `CASH-2026-00044`
+- Driver closure: `CASH-2026-00045`
+
+### Remaining Operational Notes
+
+- `ORD-2026-00079` remains a useful historical failed accounting test caused by the delivery-fee gap before the fix.
+- Work Order submit remains disabled and should not be activated until BOM coverage is expanded and tested.
+- Delivery, driver collection, non-cash payment references, rejection, return-for-edit, and delivery-failed paths are now validated against the real server.

@@ -112,7 +112,7 @@ def create_sales_order_for_order(order_name):
                 "selling_price_list": settings.default_price_list,
                 "delivery_date": order.required_date,
                 "transaction_date": frappe.utils.today(),
-                "items": [_sales_order_item(row, settings) for row in order.items],
+                "items": _sales_order_items(order, settings),
             }
         )
         _insert_with_system_permissions(sales_order)
@@ -300,7 +300,7 @@ def create_sales_invoice_for_order(order_name):
                 "selling_price_list": settings.default_price_list,
                 "posting_date": frappe.utils.today(),
                 "due_date": frappe.utils.today(),
-                "items": [_sales_invoice_item(row, order) for row in order.items],
+                "items": _sales_invoice_items(order),
             }
         )
         _insert_with_system_permissions(invoice)
@@ -590,6 +590,14 @@ def _sales_order_item(row, settings):
     }
 
 
+def _sales_order_items(order, settings):
+    items = [_sales_order_item(row, settings) for row in order.items]
+    delivery_fee_item = _delivery_fee_item(order, settings=settings)
+    if delivery_fee_item:
+        items.append(delivery_fee_item)
+    return items
+
+
 def _sales_invoice_item(row, order):
     return {
         "item_code": row.item_code,
@@ -600,6 +608,55 @@ def _sales_invoice_item(row, order):
         "amount": row.amount,
         "sales_order": order.erpnext_sales_order,
     }
+
+
+def _sales_invoice_items(order):
+    items = [_sales_invoice_item(row, order) for row in order.items]
+    delivery_fee_item = _delivery_fee_item(order)
+    if delivery_fee_item:
+        delivery_fee_item["sales_order"] = order.erpnext_sales_order
+        items.append(delivery_fee_item)
+    return items
+
+
+def _delivery_fee_item(order, settings=None):
+    delivery_fee = frappe.utils.flt(order.delivery_fee)
+    if delivery_fee <= 0:
+        return None
+    item_code = _get_or_create_delivery_fee_item()
+    item = {
+        "item_code": item_code,
+        "item_name": _("Delivery Fee"),
+        "description": _("Delivery Fee for Awamir order {0}").format(order.order_number),
+        "qty": 1,
+        "rate": delivery_fee,
+        "amount": delivery_fee,
+    }
+    if settings and getattr(settings, "default_warehouse", None):
+        item["warehouse"] = settings.default_warehouse
+    return item
+
+
+def _get_or_create_delivery_fee_item():
+    item_code = "AWAMIR-DELIVERY-FEE"
+    if frappe.db.exists("Item", item_code):
+        return item_code
+
+    item_group = "Services" if frappe.db.exists("Item Group", "Services") else "All Item Groups"
+    item = frappe.get_doc(
+        {
+            "doctype": "Item",
+            "item_code": item_code,
+            "item_name": _("Delivery Fee"),
+            "item_group": item_group,
+            "stock_uom": "Nos",
+            "is_stock_item": 0,
+            "include_item_in_manufacturing": 0,
+            "disabled": 0,
+        }
+    )
+    _insert_with_system_permissions(item)
+    return item_code
 
 
 def _get_or_create_mode_of_payment(payment_method, settings):
