@@ -195,6 +195,11 @@ def create_payment_entry_for_payment(payment_name):
     _assert_payment_closure_is_accepted(payment)
 
     order = frappe.get_doc("Awamir Order Request", payment.order)
+    if order.status in BLOCKED_SALES_ORDER_STATUSES:
+        _mark_payment_sync_failed(
+            payment,
+            _("لا يمكن ترحيل دفعة لطلب بالحالة {0}.").format(order.status),
+        )
     settings = _validated_settings(["default_company", "default_currency"])
     customer = create_customer_if_missing(order)
     mode_of_payment = _get_or_create_mode_of_payment(payment.payment_method, settings)
@@ -455,6 +460,9 @@ def get_payments_ready_for_erp_posting(limit_start=0, limit_page_length=None):
     payments = []
     for row in rows:
         if not row.cash_closure:
+            continue
+        order_status = frappe.db.get_value("Awamir Order Request", row.order, "status")
+        if order_status in BLOCKED_SALES_ORDER_STATUSES:
             continue
         closure_status = frappe.db.get_value("Awamir Daily Cash Closure", row.cash_closure, "status")
         if closure_status in ACCEPTED_CLOSURE_STATUSES:
