@@ -129,6 +129,7 @@ Run these on a real iPhone or the iOS Simulator in real ERPNext mode:
 | Delivery fee retest | `ORD-2026-00085` | Delivered and `Synced` |
 | Full pickup pilot after iPhone launch validation | `ORD-2026-00086` | Delivered, closure closed, accounting synced |
 | ERPNext invoice advance allocation retest | `ORD-2026-00091` | Delivered, synced, Sales Invoice outstanding is `0.0` |
+| Full delivery pilot with driver closure | `ORD-2026-00092` | Delivered, synced, delivery fee invoiced, Sales Invoice outstanding is `0.0` |
 
 ## Latest Pilot Notes
 
@@ -185,6 +186,34 @@ Accounting fix:
 - `create_sales_invoice_for_order` now injects already-posted Awamir Payment Entries into the ERPNext Sales Invoice `advances` table before submit.
 - The advance rows include the ERPNext `Payment Entry Reference.reference_row`, which ERPNext requires to submit the invoice without the "advance entry modified after pulling" validation error.
 - `allocate_advance_payment_to_invoice` now detects payments already linked through Sales Invoice advances and marks the Awamir payment allocation accordingly without trying to mutate submitted Payment Entries.
+
+### `ORD-2026-00092`
+
+This order retested the full delivery flow after the Sales Invoice advance allocation fix.
+
+Result:
+
+- Order status: `Delivered`
+- ERP sync status inside Awamir: `Synced`
+- Delivery fee: `25`
+- Branch employee closure: `CASH-2026-00052`, `Closed`
+- Driver closure: `CASH-2026-00053`, `Closed`
+- Sales Order: `SAL-ORD-2026-00068`, `docstatus = 1`, grand total `375`
+- Payment Entries:
+  - `ACC-PAY-2026-00102`, `docstatus = 1`, amount `100`
+  - `ACC-PAY-2026-00103`, `docstatus = 1`, amount `275`
+- Sales Invoice: `ACC-SINV-2026-00040`, `docstatus = 1`, grand total `375`
+- Sales Invoice advances count: `2`
+- Sales Invoice outstanding amount: `0.0`
+- Allocation statuses returned by Awamir:
+  - `linked_in_sales_invoice_advances`
+  - `linked_in_sales_invoice_advances`
+
+Operational note:
+
+- The delivery flow covered assignment to `driver@awamir.plus`, `Driver Picked Up`, `Out For Delivery`, driver collection of the remaining amount, and final `Delivered`.
+- The Sales Order and Sales Invoice included the delivery fee, so the ERPNext grand total matched the collected payments.
+- `CASH-2026-00052` included branch-side open cash payments at the time of submission. For production pilots, start with clean daily closures or record closure contents explicitly before submitting.
 
 ## Delivery Fee Accounting Check
 
