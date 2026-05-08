@@ -224,7 +224,7 @@ void main() {
       ),
     );
 
-    final request = _createOrderRequest();
+    final request = _createOrderRequest()..customerPhone = '٠٥٠٠٠٠٠٠٠١';
     final order = await service.saveDraft(request);
     final orderData = sentBody['order_data'] as Map<String, dynamic>;
     final items = orderData['items'] as List<dynamic>;

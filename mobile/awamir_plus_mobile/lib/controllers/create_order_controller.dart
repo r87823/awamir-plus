@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../core/errors/app_exception.dart';
+import '../core/utils/formatters.dart';
 import '../core/utils/maps_utils.dart';
 import '../core/utils/view_state.dart';
 import '../models/app_models.dart';
@@ -165,24 +166,25 @@ class CreateOrderController extends ChangeNotifier {
   }
 
   void updateCustomerPhone(String phone) {
-    request.customerPhone = phone;
+    request.customerPhone = normalizePhoneInput(phone);
     request.existingCustomer = null;
     validationMessage = null;
     notifyListeners();
   }
 
   Future<void> updatePhoneAndSearch(String phone) async {
-    request.customerPhone = phone;
+    request.customerPhone = normalizePhoneInput(phone);
     validationMessage = null;
     notifyListeners();
 
-    if (phone.trim().length < 7) return;
+    if (request.customerPhone.length < 7) return;
 
     await searchCurrentCustomer();
   }
 
   Future<void> searchCurrentCustomer() async {
-    final phone = request.customerPhone.trim();
+    final phone = normalizePhoneInput(request.customerPhone);
+    request.customerPhone = phone;
     if (!_validate(phone.isNotEmpty, 'رقم الجوال مطلوب للبحث')) {
       notifyListeners();
       return;

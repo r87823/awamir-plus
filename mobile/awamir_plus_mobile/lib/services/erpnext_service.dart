@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../core/constants/environment.dart';
 import '../core/errors/app_exception.dart';
 import '../core/network/api_client.dart';
+import '../core/utils/formatters.dart';
 import '../models/app_models.dart';
 import 'auth_service.dart';
 
@@ -104,7 +105,7 @@ class ErpnextService implements AuthService {
   }
 
   Future<Customer?> searchCustomerByPhone(String phone) async {
-    final normalized = phone.trim();
+    final normalized = normalizePhoneInput(phone);
     if (normalized.isEmpty) return null;
     final data = await _apiClient.get<List<dynamic>>(
       'awamir_plus.api.customers.search_customer_by_phone',
@@ -1050,7 +1051,7 @@ class ErpnextService implements AuthService {
     return {
       'submit_for_approval': submitForApproval,
       'customer': request.existingCustomer?.id,
-      'customer_phone': request.customerPhone.trim(),
+      'customer_phone': normalizePhoneInput(request.customerPhone),
       'customer_name': request.customerName.trim(),
       'customer_type': _customerTypeKey(request.customerType),
       'company_name': request.companyName.trim(),

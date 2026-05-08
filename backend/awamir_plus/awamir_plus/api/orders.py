@@ -41,6 +41,7 @@ from awamir_plus.utils import (
     get_request_idempotency_key,
     make_audit_log,
     make_status_log,
+    normalize_phone_input,
     parse_json,
     run_idempotent,
     save_idempotent_response,
@@ -139,6 +140,7 @@ def cancel_order(order=None, order_id=None, reason=None, idempotency_key=None):
 def _save_order(order_data, status):
     require_permissions(PERMISSION_ORDER_CREATE)
     data = order_data if isinstance(order_data, dict) else parse_json(order_data, {})
+    data["customer_phone"] = normalize_phone_input(data.get("customer_phone"))
     items = data.get("items") or []
     assert_required(items, "At least one item is required.")
     assert_required(data.get("customer_phone"), "Customer phone is required.")

@@ -2,12 +2,17 @@ import frappe
 from frappe import _
 
 from awamir_plus.permissions import require_login
-from awamir_plus.utils import assert_required, extract_coordinates_from_google_maps_url as _extract_coordinates_from_google_maps_url
+from awamir_plus.utils import (
+    assert_required,
+    extract_coordinates_from_google_maps_url as _extract_coordinates_from_google_maps_url,
+    normalize_phone_input,
+)
 
 
 @frappe.whitelist()
 def search_customer_by_phone(phone):
     require_login()
+    phone = normalize_phone_input(phone)
     assert_required(phone, "Phone is required.")
     return frappe.get_all(
         "Customer",
@@ -33,6 +38,7 @@ def search_customer_by_name(customer_name):
 def create_customer(customer_name, phone=None, customer_type="Individual", tax_id=None):
     require_login()
     assert_required(customer_name, "Customer name is required.")
+    phone = normalize_phone_input(phone)
 
     if phone:
         existing = frappe.db.get_value("Customer", {"mobile_no": phone}, "name")

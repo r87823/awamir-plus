@@ -1,6 +1,7 @@
 import unittest
 
 from awamir_plus.constants import ORDER_STATUSES, PAYMENT_STATUSES, CLOSURE_STATUSES, ERP_SYNC_STATUSES
+from awamir_plus.utils import normalize_phone_input
 
 
 class TestAwamirContracts(unittest.TestCase):
@@ -31,3 +32,6 @@ class TestAwamirContracts(unittest.TestCase):
         self.assertIn("Partially Synced", ERP_SYNC_STATUSES)
         self.assertIn("Failed", ERP_SYNC_STATUSES)
 
+    def test_localized_phone_digits_are_normalized(self):
+        self.assertEqual(normalize_phone_input("٠٥٩٩٠٠٠٠٩٩"), "0599000099")
+        self.assertEqual(normalize_phone_input("۰۵۰-۱۲۳-۴۵۶۷"), "0501234567")

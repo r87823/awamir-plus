@@ -41,6 +41,17 @@ void main() {
     expect(controller.request.pickupBranch.id, _employee.branchId);
   });
 
+  test('يطبع أرقام الجوال العربية والفارسية قبل الحفظ والبحث', () async {
+    final controller = await _createController();
+    addTearDown(controller.dispose);
+
+    controller.updateCustomerPhone('٠٥٩٩٠٠٠٠٩٩');
+    expect(controller.request.customerPhone, '0599000099');
+
+    await controller.updatePhoneAndSearch('۰۵۰۱۲۳۴۵۶۷');
+    expect(controller.request.customerPhone, '0501234567');
+  });
+
   test('يتم استخراج الإحداثيات من رابط Google Maps', () {
     final point = extractGoogleMapsCoordinates(
       'https://maps.google.com/?q=21.488775,39.930210',

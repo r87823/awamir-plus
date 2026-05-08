@@ -29,6 +29,23 @@ def to_float(value):
     return frappe.utils.flt(value or 0)
 
 
+_LOCALIZED_DIGIT_MAP = str.maketrans(
+    "٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹",
+    "01234567890123456789",
+)
+
+
+def normalize_localized_digits(value):
+    if value is None:
+        return ""
+    return str(value).translate(_LOCALIZED_DIGIT_MAP)
+
+
+def normalize_phone_input(value):
+    normalized = normalize_localized_digits(value).strip()
+    return re.sub(r"[\s\-\(\)\u200e\u200f]", "", normalized)
+
+
 def get_pagination(limit_start=0, limit_page_length=None, limit=None, default_page_length=50, max_page_length=200):
     try:
         start = max(int(limit_start or 0), 0)
