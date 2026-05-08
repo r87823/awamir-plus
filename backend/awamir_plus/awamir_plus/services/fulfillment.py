@@ -14,6 +14,14 @@ from awamir_plus.constants import (
     ORDER_STATUS_READY_FOR_DELIVERY,
     ORDER_STATUS_READY_FOR_PICKUP,
     ORDER_STATUS_SENT_TO_PRODUCTION,
+    ORDER_FLOW_STATUS_IN_FULFILLMENT,
+    ORDER_FLOW_STATUS_READY,
+    PRODUCTION_FLOW_STATUS_DELAYED,
+    PRODUCTION_FLOW_STATUS_IN_PRODUCTION,
+    PRODUCTION_FLOW_STATUS_PARTIALLY_READY,
+    PRODUCTION_FLOW_STATUS_READY,
+    PRODUCTION_FLOW_STATUS_REJECTED,
+    PRODUCTION_FLOW_STATUS_WORK_ORDERS_CREATED,
 )
 from awamir_plus.utils import create_notification, make_status_log, now
 
@@ -39,6 +47,15 @@ def create_department_work_orders_for_order(order, fallback_department=None):
 
     if work_orders and doc.production_department != work_orders[0].department:
         doc.production_department = work_orders[0].department
+    if work_orders and doc.production_status != PRODUCTION_FLOW_STATUS_WORK_ORDERS_CREATED:
+        doc.production_status = PRODUCTION_FLOW_STATUS_WORK_ORDERS_CREATED
+    if work_orders and doc.order_status != ORDER_FLOW_STATUS_IN_FULFILLMENT:
+        doc.order_status = ORDER_FLOW_STATUS_IN_FULFILLMENT
+    if work_orders and (
+        doc.has_value_changed("production_department")
+        or doc.has_value_changed("production_status")
+        or doc.has_value_changed("order_status")
+    ):
         doc.save(ignore_permissions=True)
 
     return work_orders
@@ -124,6 +141,8 @@ def _sync_parent_order_from_work_orders(order):
             if order_doc.delivery_type == "Pickup"
             else ORDER_STATUS_READY_FOR_DELIVERY
         )
+        order_doc.production_status = PRODUCTION_FLOW_STATUS_READY
+        order_doc.order_status = ORDER_FLOW_STATUS_READY
         order_doc.save(ignore_permissions=True)
         if old_status != order_doc.status:
             make_status_log(order_doc.name, old_status, order_doc.status, _("All department work orders are ready."))
@@ -131,15 +150,37 @@ def _sync_parent_order_from_work_orders(order):
     if DEPARTMENT_WORK_ORDER_STATUS_IN_PRODUCTION in statuses and order_doc.status == ORDER_STATUS_SENT_TO_PRODUCTION:
         old_status = order_doc.status
         order_doc.status = ORDER_STATUS_IN_PRODUCTION
+        order_doc.production_status = PRODUCTION_FLOW_STATUS_IN_PRODUCTION
+        order_doc.order_status = ORDER_FLOW_STATUS_IN_FULFILLMENT
         order_doc.save(ignore_permissions=True)
         make_status_log(order_doc.name, old_status, order_doc.status, _("Department production started."))
+        return order_doc
+    if DEPARTMENT_WORK_ORDER_STATUS_DELAYED in statuses:
+        order_doc.production_status = PRODUCTION_FLOW_STATUS_DELAYED
+        order_doc.order_status = ORDER_FLOW_STATUS_IN_FULFILLMENT
+        order_doc.save(ignore_permissions=True)
+        return order_doc
+    if DEPARTMENT_WORK_ORDER_STATUS_REJECTED in statuses and DEPARTMENT_WORK_ORDER_STATUS_READY not in statuses:
+        order_doc.production_status = PRODUCTION_FLOW_STATUS_REJECTED
+        order_doc.order_status = ORDER_FLOW_STATUS_IN_FULFILLMENT
+        order_doc.save(ignore_permissions=True)
         return order_doc
     if statuses.issubset({DEPARTMENT_WORK_ORDER_STATUS_READY, DEPARTMENT_WORK_ORDER_STATUS_REJECTED}):
         old_status = order_doc.status
         order_doc.status = ORDER_STATUS_PRODUCTION_COMPLETED
+        order_doc.production_status = PRODUCTION_FLOW_STATUS_PARTIALLY_READY
+        order_doc.order_status = ORDER_FLOW_STATUS_IN_FULFILLMENT
         order_doc.save(ignore_permissions=True)
         if old_status != order_doc.status:
             make_status_log(order_doc.name, old_status, order_doc.status, _("Department work orders completed with exceptions."))
+    elif DEPARTMENT_WORK_ORDER_STATUS_READY in statuses:
+        order_doc.production_status = PRODUCTION_FLOW_STATUS_PARTIALLY_READY
+        order_doc.order_status = ORDER_FLOW_STATUS_IN_FULFILLMENT
+        order_doc.save(ignore_permissions=True)
+    elif statuses.issubset({DEPARTMENT_WORK_ORDER_STATUS_PENDING, DEPARTMENT_WORK_ORDER_STATUS_ACCEPTED}):
+        order_doc.production_status = PRODUCTION_FLOW_STATUS_WORK_ORDERS_CREATED
+        order_doc.order_status = ORDER_FLOW_STATUS_IN_FULFILLMENT
+        order_doc.save(ignore_permissions=True)
     return order_doc
 
 
