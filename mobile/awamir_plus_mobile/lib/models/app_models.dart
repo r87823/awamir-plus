@@ -1182,6 +1182,22 @@ class DeliveryDetailsDraft {
   }
 }
 
+class DeliveryProofInput {
+  const DeliveryProofInput({
+    this.receivedByName = '',
+    this.proofImagePath = '',
+    this.signatureUrl = '',
+    this.qrScanned = false,
+    this.notes = '',
+  });
+
+  final String receivedByName;
+  final String proofImagePath;
+  final String signatureUrl;
+  final bool qrScanned;
+  final String notes;
+}
+
 class CreateOrderRequest {
   CreateOrderRequest({required this.createdBranch, required this.pickupBranch});
 
@@ -1393,7 +1409,10 @@ class DeliveryAssignment {
     this.deliveredAt,
     this.failedAt,
     this.failureReason = '',
+    this.receivedByName = '',
     this.proofImagePath = '',
+    this.signatureUrl = '',
+    this.qrScanned = false,
     this.driverNotes = '',
   });
 
@@ -1409,7 +1428,10 @@ class DeliveryAssignment {
   final DateTime? deliveredAt;
   final DateTime? failedAt;
   final String failureReason;
+  final String receivedByName;
   final String proofImagePath;
+  final String signatureUrl;
+  final bool qrScanned;
   final String driverNotes;
 
   DeliveryAssignment copyWith({
@@ -1419,7 +1441,10 @@ class DeliveryAssignment {
     DateTime? deliveredAt,
     DateTime? failedAt,
     String? failureReason,
+    String? receivedByName,
     String? proofImagePath,
+    String? signatureUrl,
+    bool? qrScanned,
     String? driverNotes,
   }) {
     return DeliveryAssignment(
@@ -1435,7 +1460,10 @@ class DeliveryAssignment {
       deliveredAt: deliveredAt ?? this.deliveredAt,
       failedAt: failedAt ?? this.failedAt,
       failureReason: failureReason ?? this.failureReason,
+      receivedByName: receivedByName ?? this.receivedByName,
       proofImagePath: proofImagePath ?? this.proofImagePath,
+      signatureUrl: signatureUrl ?? this.signatureUrl,
+      qrScanned: qrScanned ?? this.qrScanned,
       driverNotes: driverNotes ?? this.driverNotes,
     );
   }

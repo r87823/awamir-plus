@@ -6,6 +6,7 @@ import '../core/theme/app_theme.dart';
 import '../core/utils/formatters.dart';
 import '../models/app_models.dart';
 import '../widgets/app_header.dart';
+import '../widgets/delivery_proof_dialog.dart';
 import '../widgets/payment_method_selector.dart';
 import '../widgets/section_header.dart';
 import '../widgets/state_views.dart';
@@ -187,7 +188,16 @@ class _PickupOrderDetailScreenState extends State<PickupOrderDetailScreen> {
   }
 
   Future<void> _deliver() async {
-    final updated = await widget.controller.markPickupOrderDelivered(_order.id);
+    final proof = await showDialog<DeliveryProofInput>(
+      context: context,
+      builder: (_) => const DeliveryProofDialog(title: 'إثبات تسليم الفرع'),
+    );
+    if (proof == null) return;
+
+    final updated = await widget.controller.markPickupOrderDelivered(
+      _order.id,
+      proof: proof,
+    );
     if (!mounted) return;
     if (updated == null) {
       _showActionError();

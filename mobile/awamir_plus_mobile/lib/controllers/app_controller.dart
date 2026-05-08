@@ -642,11 +642,15 @@ class AppController extends ChangeNotifier {
     );
   }
 
-  Future<Order?> markPickupOrderDelivered(String orderId) async {
+  Future<Order?> markPickupOrderDelivered(
+    String orderId, {
+    DeliveryProofInput proof = const DeliveryProofInput(),
+  }) async {
     return _runOrderAction(
       () => _orderRepository.markPickupOrderDelivered(
         orderId: orderId,
         changedBy: currentUser,
+        proof: proof,
       ),
       fallbackError: 'تعذر تسليم الطلب',
     );
@@ -724,16 +728,14 @@ class AppController extends ChangeNotifier {
   Future<Order?> updateDeliveryStatus({
     required String orderId,
     required OrderStatus status,
-    String proofImagePath = '',
-    String driverNotes = '',
+    DeliveryProofInput proof = const DeliveryProofInput(),
   }) async {
     return _runOrderAction(
       () => _orderRepository.updateDeliveryStatus(
         orderId: orderId,
         status: status,
         changedBy: currentUser,
-        proofImagePath: proofImagePath,
-        driverNotes: driverNotes,
+        proof: proof,
       ),
       fallbackError: 'تعذر تحديث حالة التوصيل',
     );

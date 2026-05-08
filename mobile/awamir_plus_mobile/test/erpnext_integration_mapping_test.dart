@@ -864,11 +864,21 @@ void main() {
       orderId: 'ORD-2026-00012',
       status: OrderStatus.driverPickedUp,
       changedBy: _driverUser,
-      driverNotes: 'تم الاستلام',
+      proof: const DeliveryProofInput(
+        receivedByName: 'محمد المستلم',
+        proofImagePath: '/tmp/proof.jpg',
+        signatureUrl: '/tmp/signature.png',
+        qrScanned: true,
+        notes: 'تم الاستلام',
+      ),
     );
 
     expect(sentBody['new_status'], 'Driver Picked Up');
     expect(sentBody['driver_notes'], 'تم الاستلام');
+    expect(sentBody['received_by_name'], 'محمد المستلم');
+    expect(sentBody['proof_image'], '/tmp/proof.jpg');
+    expect(sentBody['signature_url'], '/tmp/signature.png');
+    expect(sentBody['qr_scanned'], 1);
     expect(order.status, OrderStatus.driverPickedUp);
   });
 

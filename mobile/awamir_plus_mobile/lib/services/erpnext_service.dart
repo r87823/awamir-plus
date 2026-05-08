@@ -319,10 +319,18 @@ class ErpnextService implements AuthService {
   Future<Order> markPickupOrderDelivered({
     required String orderId,
     required AppUser changedBy,
+    DeliveryProofInput proof = const DeliveryProofInput(),
   }) async {
     final data = await _apiClient.post<Map<String, dynamic>>(
       'awamir_plus.api.delivery.mark_pickup_order_delivered',
-      body: {'order': orderId, 'order_id': orderId},
+      body: {
+        'order': orderId,
+        'order_id': orderId,
+        'received_by_name': proof.receivedByName.trim(),
+        'proof_image_url': proof.proofImagePath.trim(),
+        'signature_url': proof.signatureUrl.trim(),
+        'qr_scanned': proof.qrScanned ? 1 : 0,
+      },
       parser: (data) => _asMap(data),
     );
     return _mapOrderFromActionResponse(data);
@@ -451,8 +459,7 @@ class ErpnextService implements AuthService {
     required String orderId,
     required OrderStatus status,
     required AppUser changedBy,
-    String proofImagePath = '',
-    String driverNotes = '',
+    DeliveryProofInput proof = const DeliveryProofInput(),
   }) async {
     final statusKey = _orderStatusKey(status);
     final data = await _apiClient.post<Map<String, dynamic>>(
@@ -462,8 +469,11 @@ class ErpnextService implements AuthService {
         'order_id': orderId,
         'new_status': statusKey,
         'status': statusKey,
-        'proof_image': proofImagePath.trim(),
-        'driver_notes': driverNotes.trim(),
+        'received_by_name': proof.receivedByName.trim(),
+        'proof_image': proof.proofImagePath.trim(),
+        'signature_url': proof.signatureUrl.trim(),
+        'qr_scanned': proof.qrScanned ? 1 : 0,
+        'driver_notes': proof.notes.trim(),
       },
       parser: (data) => _asMap(data),
     );
@@ -1361,7 +1371,10 @@ class ErpnextService implements AuthService {
       deliveredAt: _nullableDateTime(_string(data['delivered_at'])),
       failedAt: _nullableDateTime(_string(data['failed_at'])),
       failureReason: _string(data['failure_reason']),
+      receivedByName: _string(data['received_by_name']),
       proofImagePath: _string(data['proof_image']),
+      signatureUrl: _string(data['signature_url']),
+      qrScanned: _asBool(data['qr_scanned']),
       driverNotes: _string(data['driver_notes']),
     );
   }

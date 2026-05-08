@@ -567,6 +567,7 @@ class MockService implements AuthService {
   Future<Order> markPickupOrderDelivered({
     required String orderId,
     required AppUser changedBy,
+    DeliveryProofInput proof = const DeliveryProofInput(),
   }) async {
     if (!AccessControl.canDeliverPickupOrder(changedBy)) {
       throw const RepositoryException(
@@ -895,8 +896,7 @@ class MockService implements AuthService {
     required String orderId,
     required OrderStatus status,
     required AppUser changedBy,
-    String proofImagePath = '',
-    String driverNotes = '',
+    DeliveryProofInput proof = const DeliveryProofInput(),
   }) async {
     if (!AccessControl.canUpdateDeliveryStatus(changedBy)) {
       throw const RepositoryException(
@@ -920,7 +920,7 @@ class MockService implements AuthService {
       order: order,
       newStatus: status,
       changedBy: changedBy,
-      notes: _deliveryLogNote(status, driverNotes),
+      notes: _deliveryLogNote(status, proof.notes),
       progress: status == OrderStatus.delivered ? 6 : 5,
     );
     _updateDeliveryAssignment(
@@ -933,8 +933,15 @@ class MockService implements AuthService {
             ? DateTime.now()
             : null,
         deliveredAt: status == OrderStatus.delivered ? DateTime.now() : null,
-        proofImagePath: proofImagePath.isEmpty ? null : proofImagePath,
-        driverNotes: driverNotes.isEmpty ? null : driverNotes,
+        receivedByName: proof.receivedByName.isEmpty
+            ? null
+            : proof.receivedByName,
+        proofImagePath: proof.proofImagePath.isEmpty
+            ? null
+            : proof.proofImagePath,
+        signatureUrl: proof.signatureUrl.isEmpty ? null : proof.signatureUrl,
+        qrScanned: proof.qrScanned,
+        driverNotes: proof.notes.isEmpty ? null : proof.notes,
       ),
     );
     _createDeliveryNotifications(order: updated, status: status);

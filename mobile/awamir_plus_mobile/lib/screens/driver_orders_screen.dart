@@ -6,6 +6,7 @@ import '../core/theme/app_theme.dart';
 import '../core/utils/formatters.dart';
 import '../models/app_models.dart';
 import '../widgets/app_header.dart';
+import '../widgets/delivery_proof_dialog.dart';
 import '../widgets/payment_method_selector.dart';
 import '../widgets/section_header.dart';
 import '../widgets/state_views.dart';
@@ -249,24 +250,22 @@ class _DriverOrderDetailScreenState extends State<DriverOrderDetailScreen> {
   }
 
   Future<void> _deliver() async {
-    final notes = await showDialog<String>(
+    final proof = await showDialog<DeliveryProofInput>(
       context: context,
-      builder: (_) => const _TextInputDialog(
-        title: 'إثبات التسليم',
-        label: 'ملاحظة أو مسار صورة الإثبات (اختياري)',
-        requiredInput: false,
-      ),
+      builder: (_) => const DeliveryProofDialog(title: 'إثبات تسليم السائق'),
     );
-    if (notes == null) return;
-    await _updateWithNotes(OrderStatus.delivered, notes);
+    if (proof == null) return;
+    await _updateWithProof(OrderStatus.delivered, proof);
   }
 
-  Future<void> _updateWithNotes(OrderStatus status, String notes) async {
+  Future<void> _updateWithProof(
+    OrderStatus status,
+    DeliveryProofInput proof,
+  ) async {
     final updated = await widget.controller.updateDeliveryStatus(
       orderId: _order.id,
       status: status,
-      driverNotes: notes,
-      proofImagePath: notes,
+      proof: proof,
     );
     if (!mounted) return;
     if (updated == null) {

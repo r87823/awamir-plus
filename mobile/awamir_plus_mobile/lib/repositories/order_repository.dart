@@ -332,16 +332,19 @@ class OrderRepository {
   Future<Order> markPickupOrderDelivered({
     required String orderId,
     required AppUser changedBy,
+    DeliveryProofInput proof = const DeliveryProofInput(),
   }) async {
     try {
       return _useMockData
           ? _mockService.markPickupOrderDelivered(
               orderId: orderId,
               changedBy: changedBy,
+              proof: proof,
             )
           : _erpnextService.markPickupOrderDelivered(
               orderId: orderId,
               changedBy: changedBy,
+              proof: proof,
             );
     } on AppException {
       rethrow;
@@ -524,8 +527,7 @@ class OrderRepository {
     required String orderId,
     required OrderStatus status,
     required AppUser changedBy,
-    String proofImagePath = '',
-    String driverNotes = '',
+    DeliveryProofInput proof = const DeliveryProofInput(),
   }) async {
     try {
       return _useMockData
@@ -533,15 +535,13 @@ class OrderRepository {
               orderId: orderId,
               status: status,
               changedBy: changedBy,
-              proofImagePath: proofImagePath,
-              driverNotes: driverNotes,
+              proof: proof,
             )
           : _erpnextService.updateDeliveryStatus(
               orderId: orderId,
               status: status,
               changedBy: changedBy,
-              proofImagePath: proofImagePath,
-              driverNotes: driverNotes,
+              proof: proof,
             );
     } on AppException {
       rethrow;
