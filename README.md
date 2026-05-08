@@ -48,6 +48,15 @@ flutter run \
   --dart-define=ERPNEXT_BASE_URL=https://awamirplus.r8787m.cc
 ```
 
+Real iPhone pilot install:
+
+```bash
+DEVICE_ID=00008130-0014643A26F2001C \
+bash scripts/install_ios_release_device.sh
+```
+
+Use the release install for manual testing from the iPhone icon. A Flutter Debug build should be launched only through `flutter run` or Xcode, not from the home screen.
+
 Run checks:
 
 ```bash

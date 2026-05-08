@@ -218,10 +218,11 @@ flutter run -d 00008130-0014643A26F2001C \
 Release install for manual icon testing:
 
 ```bash
-flutter run --release -d 00008130-0014643A26F2001C \
-  --dart-define=USE_MOCK_DATA=false \
-  --dart-define=ERPNEXT_BASE_URL=https://awamirplus.r8787m.cc
+DEVICE_ID=00008130-0014643A26F2001C \
+bash scripts/install_ios_release_device.sh
 ```
+
+The script removes the stale old bundle id if present, builds a signed iOS release with real ERPNext dart-defines, installs `build/ios/iphoneos/Runner.app`, and launches `com.awamir.plus`.
 
 Standalone launch check:
 
