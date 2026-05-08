@@ -48,6 +48,8 @@ def get_delivery_batches(statuses=None, driver=None, destination_branch=None):
 def assign_batch_to_driver(batch, driver):
     doc = frappe.get_doc("Awamir Delivery Batch", batch)
     if doc.status == DELIVERY_BATCH_STATUS_ASSIGNED and doc.driver == driver:
+        _assign_batch_orders_to_driver(doc, driver)
+        doc.save(ignore_permissions=True)
         return doc
     if doc.status != DELIVERY_BATCH_STATUS_DRAFT:
         frappe.throw(_("Only draft delivery batches can be assigned."))
