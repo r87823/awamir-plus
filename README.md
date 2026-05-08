@@ -16,6 +16,7 @@ awamir-plus/
     sales-classic.html       # Visual reference only
   docs/
     RELEASE_V0_1.md
+    DEVICE_PILOT_RUNBOOK.md
     V0_2_OPERATIONS_WORKFLOW_PROGRESS.md
     V0_2_DEPLOYMENT_CHECKLIST.md
     API_OVERVIEW.md
@@ -74,6 +75,8 @@ python3 -m compileall backend/awamir_plus/awamir_plus
 
 The current pilot release notes are documented in [Awamir Plus Pilot Release v0.1](docs/RELEASE_V0_1.md).
 
+The real-device pilot checklist is documented in [Device Pilot Runbook](docs/DEVICE_PILOT_RUNBOOK.md).
+
 The expanded operations workflow progress for v0.2 is tracked in [v0.2 Operations Workflow Progress](docs/V0_2_OPERATIONS_WORKFLOW_PROGRESS.md).
 
 Deployment and smoke-test steps for v0.2 are documented in [v0.2 Deployment Checklist](docs/V0_2_DEPLOYMENT_CHECKLIST.md).
@@ -109,6 +112,7 @@ Real ERPNext demo users are created by the seed script and use the configured de
 ## Documentation
 
 - [Pilot Release v0.1](docs/RELEASE_V0_1.md)
+- [Device Pilot Runbook](docs/DEVICE_PILOT_RUNBOOK.md)
 - [v0.2 Operations Workflow Progress](docs/V0_2_OPERATIONS_WORKFLOW_PROGRESS.md)
 - [v0.2 Deployment Checklist](docs/V0_2_DEPLOYMENT_CHECKLIST.md)
 - [API Overview](docs/API_OVERVIEW.md)
