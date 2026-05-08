@@ -128,6 +128,7 @@ Run these on a real iPhone or the iOS Simulator in real ERPNext mode:
 | Delivery failed | `ORD-2026-00084` | `Delivery Failed` |
 | Delivery fee retest | `ORD-2026-00085` | Delivered and `Synced` |
 | Full pickup pilot after iPhone launch validation | `ORD-2026-00086` | Delivered, closure closed, accounting synced |
+| ERPNext invoice advance allocation retest | `ORD-2026-00091` | Delivered, synced, Sales Invoice outstanding is `0.0` |
 
 ## Latest Pilot Notes
 
@@ -156,7 +157,34 @@ Accounting note:
 
 - Awamir marked the order as `Synced` after linking both payments internally to the invoice.
 - ERPNext still showed `ACC-SINV-2026-00036` with `outstanding_amount = 350` because the Payment Entries were already submitted and the current allocation logic records the link inside Awamir instead of modifying submitted ERPNext ledger allocations.
-- This should be reviewed in a later accounting refinement phase before relying on ERPNext invoice outstanding as the sole paid/unpaid source.
+- This was fixed and retested in `ORD-2026-00091` by adding submitted Payment Entries as Sales Invoice advances before invoice submit.
+
+### `ORD-2026-00091`
+
+This order retested the ERPNext invoice advance allocation after updating the accounting service.
+
+Result:
+
+- Order status: `Delivered`
+- ERP sync status inside Awamir: `Synced`
+- Cash closure: `CASH-2026-00051`
+- Cash closure status: `Closed`
+- Sales Order: `SAL-ORD-2026-00067`, `docstatus = 1`, grand total `350`
+- Payment Entries:
+  - `ACC-PAY-2026-00100`, `docstatus = 1`, amount `120`
+  - `ACC-PAY-2026-00101`, `docstatus = 1`, amount `230`
+- Sales Invoice: `ACC-SINV-2026-00039`, `docstatus = 1`, grand total `350`
+- Sales Invoice advances count: `2`
+- Sales Invoice outstanding amount: `0.0`
+- Allocation statuses returned by Awamir:
+  - `linked_in_sales_invoice_advances`
+  - `linked_in_sales_invoice_advances`
+
+Accounting fix:
+
+- `create_sales_invoice_for_order` now injects already-posted Awamir Payment Entries into the ERPNext Sales Invoice `advances` table before submit.
+- The advance rows include the ERPNext `Payment Entry Reference.reference_row`, which ERPNext requires to submit the invoice without the "advance entry modified after pulling" validation error.
+- `allocate_advance_payment_to_invoice` now detects payments already linked through Sales Invoice advances and marks the Awamir payment allocation accordingly without trying to mutate submitted Payment Entries.
 
 ## Delivery Fee Accounting Check
 

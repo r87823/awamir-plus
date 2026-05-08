@@ -301,6 +301,7 @@ def create_sales_invoice_for_order(order_name):
                 "posting_date": frappe.utils.today(),
                 "due_date": frappe.utils.today(),
                 "items": _sales_invoice_items(order),
+                "advances": _sales_invoice_advances(order),
             }
         )
         _insert_with_system_permissions(invoice)
@@ -619,6 +620,69 @@ def _sales_invoice_items(order):
     return items
 
 
+def _sales_invoice_advances(order):
+    invoice_total = frappe.utils.flt(order.total_amount) + frappe.utils.flt(order.delivery_fee)
+    if invoice_total <= 0:
+        return []
+
+    rows = []
+    remaining = invoice_total
+    payments = frappe.get_all(
+        "Awamir Order Payment",
+        filters={
+            "order": order.name,
+            "status": ["in", [PAYMENT_STATUS_POSTED_TO_ERP, PAYMENT_STATUS_LINKED_TO_INVOICE]],
+        },
+        fields=["name", "amount", "erpnext_payment_entry"],
+        order_by="created_at asc",
+    )
+    for payment in payments:
+        if remaining <= 0:
+            break
+        if not payment.erpnext_payment_entry:
+            continue
+        reference_row = _payment_entry_sales_order_reference_row(
+            payment.erpnext_payment_entry,
+            order.erpnext_sales_order,
+        )
+        if not reference_row:
+            continue
+        allocated_amount = min(frappe.utils.flt(payment.amount), remaining)
+        if allocated_amount <= 0:
+            continue
+        rows.append(
+            {
+                "reference_type": "Payment Entry",
+                "reference_name": payment.erpnext_payment_entry,
+                "reference_row": reference_row,
+                "remarks": _("Advance payment for Awamir order {0}").format(order.order_number),
+                "advance_amount": frappe.utils.flt(payment.amount),
+                "allocated_amount": allocated_amount,
+                "ref_exchange_rate": 1,
+            }
+        )
+        remaining -= allocated_amount
+    return rows
+
+
+def _payment_entry_sales_order_reference_row(payment_entry_name, sales_order):
+    if not payment_entry_name:
+        return None
+    if frappe.db.get_value("Payment Entry", payment_entry_name, "docstatus") != 1:
+        return None
+    if not sales_order:
+        return None
+    return frappe.db.get_value(
+        "Payment Entry Reference",
+        {
+            "parent": payment_entry_name,
+            "reference_doctype": "Sales Order",
+            "reference_name": sales_order,
+        },
+        "name",
+    )
+
+
 def _delivery_fee_item(order, settings=None):
     delivery_fee = frappe.utils.flt(order.delivery_fee)
     if delivery_fee <= 0:
@@ -735,6 +799,10 @@ def _link_payment_entry_to_invoice(payment_entry_name, sales_invoice, amount):
         frappe.throw(_("الدفعة المرحلة لا تحتوي رقم Payment Entry من ERPNext."))
     if frappe.db.get_value("Sales Invoice", sales_invoice, "docstatus") != 1:
         return "invoice_not_submitted"
+    invoice = frappe.get_doc("Sales Invoice", sales_invoice)
+    for advance in invoice.get("advances") or []:
+        if advance.reference_type == "Payment Entry" and advance.reference_name == payment_entry_name:
+            return "linked_in_sales_invoice_advances"
     payment_entry = frappe.get_doc("Payment Entry", payment_entry_name)
     for reference in payment_entry.references:
         if reference.reference_doctype == "Sales Invoice" and reference.reference_name == sales_invoice:
