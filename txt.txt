@@ -1,0 +1,914 @@
+Implement Full Awamir Plus Operations Workflow
+
+الهدف:
+بناء نظام أوامر بلس كمنصة تشغيل متكاملة تشمل:
+
+- RBAC Roles & Permissions
+- Order Workflow
+- Department-Based Production
+- Delivery Batch Assignment
+- Accounting Review Flow
+- Audit Logs
+- Initial Branches and Production Departments Data
+
+==================================================
+1. INITIAL MASTER DATA
+==================================================
+
+أضف البيانات التالية كـ seed data أو migration.
+
+Branches:
+
+1. فرع الشرايع
+code: sharayea
+
+2. فرع الخضراء
+code: khadra
+
+3. فرع العوالي
+code: awali
+
+4. فرع الستين
+code: sitteen
+
+5. فرع النوارية
+code: nawaria
+
+--------------------------------------------------
+
+Production Centers:
+
+1. المصنع
+code: factory
+
+Departments:
+- قسم التورت
+  code: cake_department
+
+- قسم المعجنات
+  code: pastry_department
+
+- قسم الشرقي
+  code: oriental_sweets_department
+
+- قسم البيتي فور
+  code: petit_four_department
+
+--------------------------------------------------
+
+2. المطبخ
+code: nabtha
+
+Departments:
+- قسم الذبايح
+  code: slaughter_department
+
+- قسم السلطة
+  code: salad_department
+
+- قسم البوفيه
+  code: buffet_department
+
+==================================================
+2. ROLES
+==================================================
+
+اعتمد الأدوار التالية:
+
+1. branch_operator
+موظف الفرع
+
+المهام:
+- إنشاء الطلبات.
+- عرض طلباته فقط.
+- تعديل الطلبات بحالة Draft فقط.
+- تسليم الطلب داخل الفرع.
+- تحصيل المدفوعات داخل الفرع.
+- عرض عهدته اليومية.
+
+Permissions:
+- order.create
+- order.view_own
+- order.edit_draft
+- order.deliver_branch
+- payment.collect_branch
+- cashbox.view_own
+
+--------------------------------------------------
+
+2. branch_supervisor
+مشرف الفرع
+
+المهام:
+- عرض طلبات الفرع.
+- مراجعة الطلبات.
+- الموافقة على الطلب.
+- رفض الطلب.
+- إعادة الطلب للتعديل.
+- عند الموافقة يتم إنشاء مسار التنفيذ تلقائيًا.
+- متابعة طلبات الفرع.
+
+Permissions:
+- order.view_branch
+- order.approve
+- order.reject
+- order.return_for_edit
+- fulfillment.create
+
+--------------------------------------------------
+
+3. fulfillment_coordinator
+مسؤول التوزيع والتنفيذ
+
+المهام:
+- استلام الطلبات المعتمدة.
+- تقسيم أصناف الطلب حسب الأقسام.
+- إنشاء أوامر عمل مستقلة لكل قسم.
+- إرسال كل جزء من الطلب للقسم الصحيح.
+- متابعة حالة كل قسم.
+- تجميع الطلب بعد اكتمال الأقسام.
+- إنشاء Delivery Batches حسب فرع الاستلام.
+- إسناد دفعات التوصيل للسائقين.
+
+Permissions:
+- fulfillment.view_queue
+- fulfillment.split_by_department
+- fulfillment.create_department_work_orders
+- fulfillment.assign_department
+- fulfillment.view_department_status
+- delivery_batch.create
+- delivery_batch.assign_driver
+- delivery_batch.view
+- delivery.view_all
+
+--------------------------------------------------
+
+4. production_operator
+موظف الإنتاج
+
+المهام:
+- عرض أوامر العمل الخاصة بقسمه فقط.
+- قبول أو رفض أمر العمل.
+- تحديث حالة التجهيز.
+- تسجيل سبب التأخير أو الرفض.
+- تحويل أمر العمل إلى Ready.
+
+Permissions:
+- work_order.view_department
+- work_order.accept
+- work_order.reject
+- work_order.update_status
+- production.mark_ready
+
+--------------------------------------------------
+
+5. driver
+السائق
+
+المهام:
+- عرض رحلاته أو دفعات التوصيل المسندة له فقط.
+- استلام الطلبات الجاهزة.
+- تحديث حالة التوصيل.
+- تأكيد تسليم الطلبات للفرع.
+- تحصيل المبلغ المتبقي إذا كان مطلوبًا.
+- عرض عهدته اليومية.
+
+Permissions:
+- delivery_batch.view_assigned
+- delivery_batch.update_status
+- delivery.view_assigned
+- delivery.update_status
+- delivery.confirm_delivered
+- delivery.collect_cash
+- cashbox.view_own
+
+--------------------------------------------------
+
+6. cashier
+أمين الصندوق
+
+المهام:
+- عرض عهد الموظفين والسائقين.
+- مراجعة العهد اليومية.
+- قبول العهدة.
+- إرجاع العهدة مع سبب.
+- تسجيل الفروقات النقدية.
+- إغلاق العهد اليومية.
+
+Permissions:
+- cashbox.view_all
+- cashbox.review
+- cashbox.approve
+- cashbox.return
+- cashbox.close_day
+
+--------------------------------------------------
+
+7. accountant
+المحاسب
+
+المهام:
+- مراجعة العمليات المالية اليومية.
+- مراجعة الفواتير والمدفوعات.
+- اعتماد وترحيل العمليات المحاسبية.
+- مطابقة الدفعات مع الفواتير.
+- متابعة العهد والفروقات المالية.
+- إدارة الحسابات المدينة.
+- إصدار التقارير المالية.
+- مراجعة الإغلاقات اليومية.
+
+مهم:
+- النظام ينشئ Sales Order و Draft Sales Invoice تلقائيًا.
+- المحاسب لا ينشئ العمليات يدويًا إلا في الاستثناءات.
+- المحاسب يراجع ويعتمد ويرحل فقط.
+
+Permissions:
+- accounting.view_financials
+- accounting.review_invoice
+- accounting.submit_invoice
+- accounting.review_payment
+- accounting.submit_payment
+- accounting.reconcile_payments
+- accounting.view_reports
+- accounting.close_financial_day
+
+--------------------------------------------------
+
+8. platform_admin
+مدير النظام
+
+المهام:
+- إدارة المستخدمين.
+- إدارة الأدوار.
+- إدارة الصلاحيات.
+- إدارة الفروع.
+- إدارة الأقسام.
+- إدارة إعدادات النظام.
+- إدارة Workflow.
+- عرض Audit Logs.
+- الوصول الكامل للنظام.
+
+Permissions:
+- admin.manage_users
+- admin.manage_roles
+- admin.manage_permissions
+- admin.manage_branches
+- admin.manage_departments
+- admin.manage_settings
+- admin.manage_workflows
+- admin.view_audit_logs
+- system.full_access
+
+==================================================
+3. RBAC REQUIREMENTS
+==================================================
+
+لا تستخدم التحقق المباشر من الدور مثل:
+
+if (role == 'driver')
+
+استخدم دائمًا:
+
+hasPermission('delivery.update_status')
+
+أنشئ helpers:
+
+- hasRole(role)
+- hasPermission(permission)
+- hasAnyPermission(permissions)
+- hasAllPermissions(permissions)
+
+يجب تطبيق الصلاحيات في:
+
+- Flutter UI
+- API
+- Backend
+
+مهم:
+لا تعتمد على Flutter فقط لحماية الصلاحيات.
+
+==================================================
+4. ORDER STATUS DESIGN
+==================================================
+
+لا تجعل للطلب حالة واحدة فقط.
+
+افصل الحالات كالتالي:
+
+Order:
+- order_status
+- production_status
+- delivery_status
+- payment_status
+- accounting_status
+
+مثال:
+
+order_status: approved
+production_status: partially_ready
+delivery_status: not_assigned
+payment_status: partially_paid
+accounting_status: draft_invoice_created
+
+==================================================
+5. ORDER WORKFLOW STATES
+==================================================
+
+Order Status:
+
+- draft
+- pending_approval
+- approved
+- in_fulfillment
+- ready
+- delivered
+- completed
+- cancelled
+- rejected
+- returned_for_edit
+
+Production Status:
+
+- not_started
+- split_by_department
+- department_work_orders_created
+- in_production
+- partially_ready
+- ready
+- delayed
+- rejected
+
+Delivery Status:
+
+- not_required
+- waiting_batch
+- added_to_delivery_batch
+- assigned_to_driver
+- picked_up
+- out_for_delivery
+- delivered
+- partially_delivered
+- returned
+
+Payment Status:
+
+- unpaid
+- partially_paid
+- paid
+- cash_pending
+- cash_closed
+- refunded
+
+Accounting Status:
+
+- not_posted
+- sales_order_created
+- draft_invoice_created
+- invoice_submitted
+- payment_submitted
+- accounting_posted
+
+==================================================
+6. DEPARTMENT-BASED FULFILLMENT
+==================================================
+
+عند اعتماد الطلب من مشرف الفرع:
+
+1. يتم تغيير حالة الطلب إلى approved.
+2. يتم تحويله إلى fulfillment queue.
+3. مسؤول التوزيع يقسم الطلب حسب الأقسام.
+4. يتم إنشاء Work Order مستقل لكل قسم.
+5. كل Work Order يحتوي فقط الأصناف التابعة لذلك القسم.
+
+مثال:
+
+Order #1001:
+- تورتة فراولة
+- معجنات مشكلة
+
+النظام ينشئ:
+
+Work Order #WO-001
+Production Center: المصنع
+Department: قسم التورت
+Items:
+- تورتة فراولة
+
+Work Order #WO-002
+Production Center: المصنع
+Department: قسم المعجنات
+Items:
+- معجنات مشكلة
+
+الطلب الرئيسي لا يصبح Ready إلا إذا كل أوامر العمل التابعة له أصبحت Ready.
+
+==================================================
+7. ITEM TO DEPARTMENT MAPPING
+==================================================
+
+أضف جدول أو كيان:
+
+item_department_mapping
+
+Fields:
+- id
+- item_id
+- production_center_id
+- department_id
+- is_active
+
+الهدف:
+كل صنف يكون مربوطًا بقسم إنتاج.
+
+مثال:
+- تورتة فراولة -> المصنع / قسم التورت
+- معجنات مشكلة -> المصنع / قسم المعجنات
+- حلى شرقي -> المصنع / قسم الشرقي
+- بيتي فور -> المصنع / قسم البيتي فور
+- ذبيحة -> المطبخ / قسم الذبايح
+- سلطة -> المطبخ / قسم السلطة
+- بوفيه -> المطبخ / قسم البوفيه
+
+مهم:
+لا تجعل مسؤول التوزيع يختار القسم يدويًا كل مرة.
+النظام يحدد القسم تلقائيًا من item_department_mapping.
+مسؤول التوزيع يستطيع التعديل فقط إذا لديه صلاحية.
+
+==================================================
+8. WORK ORDER ENTITY
+==================================================
+
+أضف Work Order أو Department Work Order.
+
+Fields:
+- id
+- work_order_number
+- order_id
+- production_center_id
+- department_id
+- status
+- priority
+- assigned_to
+- accepted_at
+- started_at
+- ready_at
+- rejected_at
+- delay_reason
+- rejection_reason
+- notes
+- created_at
+- updated_at
+
+Work Order Status:
+
+- pending
+- accepted
+- in_production
+- delayed
+- ready
+- rejected
+- cancelled
+
+==================================================
+9. DELIVERY BATCH SYSTEM
+==================================================
+
+بعد اكتمال الإنتاج وتحول الطلب إلى ready:
+
+لا يتم إسناد الطلب مباشرة للسائق.
+
+يتم تجميع الطلبات حسب فرع الاستلام.
+
+مثال:
+
+Order #1 -> فرع الشرايع
+Order #2 -> فرع الشرايع
+
+يتم إنشاء:
+
+Delivery Batch #B001
+Destination Branch: فرع الشرايع
+Orders:
+- Order #1
+- Order #2
+
+ثم يتم إسناد Batch للسائق.
+
+مثال آخر:
+
+Order #1 -> فرع الشرايع
+Order #2 -> فرع الشرايع
+Order #3 -> فرع العوالي
+Order #4 -> فرع العوالي
+Order #5 -> فرع العوالي
+
+النظام ينشئ:
+
+Batch #B001 -> فرع الشرايع
+- Order #1
+- Order #2
+
+Batch #B002 -> فرع العوالي
+- Order #3
+- Order #4
+- Order #5
+
+ثم:
+Driver A -> Batch #B001
+Driver B -> Batch #B002
+
+==================================================
+10. DELIVERY BATCH ENTITY
+==================================================
+
+delivery_batches
+
+Fields:
+- id
+- batch_number
+- destination_branch_id
+- driver_id
+- status
+- total_orders
+- assigned_at
+- picked_up_at
+- delivered_at
+- notes
+- created_at
+- updated_at
+
+delivery_batch_orders
+
+Fields:
+- id
+- batch_id
+- order_id
+- status
+- delivered_at
+- notes
+
+Delivery Batch Status:
+
+- pending
+- assigned
+- picked_up
+- out_for_delivery
+- partially_delivered
+- delivered
+- returned
+- cancelled
+
+مهم:
+لا تربط السائق بالطلب مباشرة.
+اربطه بالـ Delivery Batch.
+
+Driver
+→ Delivery Batch
+→ Orders
+
+==================================================
+11. OPTIONAL TRIP SYSTEM
+==================================================
+
+صمم النظام بحيث يقبل لاحقًا إضافة Trip.
+
+Trip:
+- id
+- trip_number
+- driver_id
+- status
+- started_at
+- completed_at
+
+Trip يحتوي أكثر من Delivery Batch.
+
+Trip
+→ Delivery Batches
+→ Orders
+
+لا يلزم تنفيذ Trip الآن إذا كان سيؤخر المشروع، لكن يجب ألا يمنع التصميم إضافته لاحقًا.
+
+==================================================
+12. ACCOUNTING AUTOMATION
+==================================================
+
+عند اعتماد الطلب:
+- أنشئ Sales Order تلقائيًا إذا كانت البيانات مكتملة.
+
+عند وصول الطلب إلى Ready:
+- أنشئ Draft Sales Invoice تلقائيًا.
+
+عند Delivered:
+- جهّز الفاتورة للترحيل.
+- إذا كانت كل البيانات مكتملة، يمكن Submit Invoice تلقائيًا أو تركها للمحاسب للمراجعة حسب الإعدادات.
+
+عند التحصيل:
+- أنشئ Draft Payment Entry.
+- المحاسب يراجع ثم يعتمد.
+
+المحاسب مسؤول عن:
+- Review
+- Submit
+- Reconcile
+- Close Financial Day
+
+وليس مسؤولًا عن التشغيل اليومي.
+
+==================================================
+13. CASHBOX FLOW
+==================================================
+
+كل موظف أو سائق لديه عهدة يومية.
+
+Cashbox Fields:
+- id
+- user_id
+- date
+- expected_cash
+- collected_cash
+- difference
+- status
+- submitted_at
+- reviewed_by
+- reviewed_at
+- notes
+
+Cashbox Status:
+- open
+- submitted
+- under_review
+- approved
+- returned
+- closed
+
+==================================================
+14. AUDIT LOG SYSTEM
+==================================================
+
+أضف Audit Log لكل العمليات المهمة:
+
+- إنشاء الطلب
+- تعديل الطلب
+- إرسال الطلب للاعتماد
+- موافقة
+- رفض
+- إرجاع للتعديل
+- تقسيم الطلب حسب الأقسام
+- إنشاء Work Order
+- قبول Work Order
+- رفض Work Order
+- تحديث حالة الإنتاج
+- تحويل الطلب إلى Ready
+- إنشاء Delivery Batch
+- إسناد Batch لسائق
+- استلام السائق للطلبات
+- تأكيد التسليم
+- تحصيل مبلغ
+- تسليم عهدة
+- مراجعة عهدة
+- ترحيل فاتورة
+- ترحيل دفعة
+
+Audit Log Fields:
+
+- id
+- user_id
+- role
+- permission_used
+- action
+- entity_type
+- entity_id
+- old_status
+- new_status
+- old_values
+- new_values
+- timestamp
+- notes
+
+==================================================
+15. NOTIFICATION ENGINE
+==================================================
+
+أضف نظام إشعارات داخلي.
+
+Events:
+- order_created
+- order_approved
+- order_rejected
+- work_order_created
+- work_order_ready
+- order_ready
+- delivery_batch_assigned
+- order_delivered
+- cashbox_returned
+- invoice_submitted
+
+Channels لاحقًا:
+- push
+- sms
+- whatsapp
+- email
+
+الآن يكفي internal notifications.
+
+==================================================
+16. EXCEPTION SYSTEM
+==================================================
+
+أضف أسباب جاهزة للاستثناءات:
+
+Production:
+- item_unavailable
+- delayed_production
+- capacity_full
+- quality_issue
+
+Delivery:
+- driver_issue
+- branch_closed
+- damaged_item
+- delivery_failed
+
+Payment:
+- payment_failed
+- cash_difference
+- unpaid_amount
+
+Customer:
+- customer_cancelled
+- customer_not_available
+
+==================================================
+17. PRIORITY AND SCHEDULED ORDERS
+==================================================
+
+أضف للطلب:
+
+- priority
+- scheduled_at
+- pickup_time
+- delivery_window_start
+- delivery_window_end
+
+Priority Values:
+- normal
+- urgent
+- vip
+- scheduled
+
+==================================================
+18. PRODUCTION CAPACITY
+==================================================
+
+أضف قابلية تحديد طاقة القسم.
+
+production_departments fields:
+- id
+- production_center_id
+- name
+- code
+- daily_capacity
+- is_active
+
+مثال:
+قسم التورت قد يكون له daily_capacity.
+النظام يحذر عند تجاوز الطاقة.
+
+==================================================
+19. PACKING / READY AREA
+==================================================
+
+بعد انتهاء الأقسام:
+
+production_status:
+- partially_ready
+- ready_for_packing
+- packed
+- ready
+
+الطلب لا يدخل التوزيع إلا بعد packed أو ready حسب الإعدادات.
+
+==================================================
+20. PROOF OF DELIVERY
+==================================================
+
+عند تسليم الطلب للفرع:
+
+أضف إمكانية:
+- اسم المستلم
+- توقيع
+- صورة
+- QR scan
+- ملاحظات
+
+Fields:
+- received_by_name
+- proof_image_url
+- signature_url
+- qr_scanned
+- delivered_at
+
+يمكن تنفيذها تدريجيًا.
+
+==================================================
+21. SOFT DELETE AND CANCELLATION
+==================================================
+
+لا تحذف الطلبات أو الفواتير أو الدفعات نهائيًا.
+
+استخدم:
+- is_cancelled
+- cancelled_at
+- cancelled_by
+- cancellation_reason
+
+==================================================
+22. IDEMPOTENCY
+==================================================
+
+أضف idempotency key للعمليات الحساسة:
+
+- create_work_orders
+- create_sales_order
+- create_invoice
+- create_payment_entry
+- assign_delivery_batch
+
+الهدف:
+منع تكرار العملية عند ضعف الاتصال أو إعادة الطلب من التطبيق.
+
+==================================================
+23. PERFORMANCE REQUIREMENTS
+==================================================
+
+استخدم:
+- pagination
+- indexed queries
+- filtering by branch
+- filtering by status
+- filtering by department
+- lazy loading
+
+لا تجلب كل الطلبات دفعة واحدة.
+
+==================================================
+24. MIGRATION FROM OLD ROLES
+==================================================
+
+Mapping:
+
+branch_employee -> branch_operator
+branch_supervisor -> branch_supervisor
+distribution_manager -> fulfillment_coordinator
+production_user -> production_operator
+driver -> driver
+cashier -> cashier
+accountant -> accountant
+system_admin -> platform_admin
+
+أضف compatibility layer مؤقت للكود القديم.
+
+==================================================
+25. DELIVERABLES
+==================================================
+
+المطلوب تسليم:
+
+- RBAC Architecture
+- Permission Constants
+- Role Constants
+- Role Permission Mapping
+- Authorization Middleware
+- Flutter Permission Guards
+- Backend Permission Validation
+- Branch Seed Data
+- Production Centers Seed Data
+- Production Departments Seed Data
+- Item Department Mapping Structure
+- Order Workflow
+- Department Work Orders
+- Delivery Batch System
+- Cashbox Flow
+- Accounting Review Flow
+- Audit Log System
+- Notification Events
+- Migration Layer
+- Unit Tests
+- Example Usage
+- Documentation
+
+==================================================
+26. IMPORTANT IMPLEMENTATION RULES
+==================================================
+
+- لا تستخدم hardcoded roles داخل الصفحات.
+- استخدم permissions constants.
+- اجعل كل Role يعتمد على Permissions.
+- لا تعتمد على Flutter فقط لحماية الصلاحيات.
+- تحقق من الصلاحيات في Backend.
+- اجعل الطلب قابلًا للتقسيم حسب الأصناف والأقسام.
+- لا تجعل الطلب Ready إلا إذا كل الأقسام انتهت.
+- لا تربط السائق بالطلب مباشرة، اربطه بـ Delivery Batch.
+- اجعل المحاسب مراجع ومعتمد مالي وليس مشغل تشغيل يومي.
+- استخدم Audit Logs في كل العمليات المهمة.
+- حافظ على التوافق مع ERPNext.
