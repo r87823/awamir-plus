@@ -4,6 +4,12 @@ from frappe import _
 from awamir_plus.constants import (
     CLOSURE_STATUS_OPEN,
     CLOSURE_STATUS_RETURNED,
+    DELIVERY_FLOW_STATUS_DELIVERED,
+    DELIVERY_FLOW_STATUS_OUT_FOR_DELIVERY,
+    DELIVERY_FLOW_STATUS_PICKED_UP,
+    DELIVERY_FLOW_STATUS_RETURNED,
+    ORDER_FLOW_STATUS_DELIVERED,
+    ORDER_PAYMENT_FLOW_STATUS_PAID,
     ORDER_STATUS_ASSIGNED_TO_DRIVER,
     ORDER_STATUS_DELIVERED,
     ORDER_STATUS_DELIVERY_FAILED,
@@ -345,8 +351,10 @@ def update_delivery_status(order=None, new_status=None, proof_image=None, driver
         frappe.throw(_("Remaining amount must be collected before delivery."))
     old_status = doc.status
     doc.status = new_status
+    _sync_delivery_flow_status(doc, new_status)
     doc.save(ignore_permissions=True)
     _update_assignment(doc, new_status, proof_image=proof_image, driver_notes=driver_notes)
+    _sync_delivery_batch_order_status(doc)
     make_status_log(doc.name, old_status, new_status, driver_notes)
     _create_delivery_notifications(doc, new_status)
     response = _order_response(doc, _("Delivery status updated successfully."))
@@ -370,8 +378,10 @@ def mark_delivery_failed(order=None, reason=None, failure_reason=None, order_id=
         frappe.throw(_("Invalid delivery status transition."))
     old_status = doc.status
     doc.status = ORDER_STATUS_DELIVERY_FAILED
+    doc.delivery_status = DELIVERY_FLOW_STATUS_RETURNED
     doc.save(ignore_permissions=True)
     _update_assignment(doc, ORDER_STATUS_DELIVERY_FAILED, failure_reason=reason)
+    _sync_delivery_batch_order_status(doc)
     make_status_log(doc.name, old_status, doc.status, reason)
     _create_delivery_notifications(doc, ORDER_STATUS_DELIVERY_FAILED, failure_reason=reason)
     response = _order_response(doc, _("Delivery failure recorded successfully."))
@@ -410,6 +420,35 @@ def _update_assignment(order_doc, status, proof_image=None, driver_notes=None, f
     if driver_notes:
         assignment.driver_notes = driver_notes
     assignment.save(ignore_permissions=True)
+
+
+def _sync_delivery_flow_status(order_doc, status):
+    if status == ORDER_STATUS_DRIVER_PICKED_UP:
+        order_doc.delivery_status = DELIVERY_FLOW_STATUS_PICKED_UP
+    elif status == ORDER_STATUS_OUT_FOR_DELIVERY:
+        order_doc.delivery_status = DELIVERY_FLOW_STATUS_OUT_FOR_DELIVERY
+    elif status == ORDER_STATUS_DELIVERED:
+        order_doc.delivery_status = DELIVERY_FLOW_STATUS_DELIVERED
+        order_doc.order_status = ORDER_FLOW_STATUS_DELIVERED
+        if to_float(order_doc.remaining_amount) <= 0:
+            order_doc.payment_status = ORDER_PAYMENT_FLOW_STATUS_PAID
+
+
+def _sync_delivery_batch_order_status(order_doc):
+    rows = frappe.get_all(
+        "Awamir Delivery Batch Order",
+        filters={"order": order_doc.name},
+        fields=["name", "parent"],
+    )
+    for row in rows:
+        batch = frappe.get_doc("Awamir Delivery Batch", row.parent)
+        changed = False
+        for batch_order in batch.orders:
+            if batch_order.name == row.name and batch_order.status != order_doc.status:
+                batch_order.status = order_doc.status
+                changed = True
+        if changed:
+            batch.save(ignore_permissions=True)
 
 
 def _ensure_payment_scope(doc):
