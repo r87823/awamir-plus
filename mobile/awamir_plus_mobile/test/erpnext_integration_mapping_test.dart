@@ -83,6 +83,32 @@ void main() {
     expect(user?.branchName, 'Main Branch');
   });
 
+  test('System Manager لا يطغى على دور أوامر المحدد', () async {
+    final service = ErpnextService(
+      apiClient: ApiClient(
+        baseUrl: 'https://example.com',
+        cookieStore: _MemoryCookieStore(),
+        httpClient: MockClient(
+          (_) async => _jsonResponse({
+            'message': {
+              'id': 'supervisor@example.com',
+              'full_name': 'مشرف فرع',
+              'email': 'supervisor@example.com',
+              'roles': ['System Manager', 'Awamir Branch Supervisor'],
+              'branch': 'فرع المروج',
+              'production_department': null,
+              'driver_profile': null,
+            },
+          }),
+        ),
+      ),
+    );
+
+    final user = await service.getCurrentUser();
+
+    expect(user?.role, UserRole.branchSupervisor);
+  });
+
   test(
     'product repository يستخدم ErpnextService عندما useMockData = false',
     () async {

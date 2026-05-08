@@ -601,6 +601,14 @@ class ProductionDepartment {
   final String code;
   final bool isActive;
   final String branch;
+
+  @override
+  bool operator ==(Object other) {
+    return other is ProductionDepartment && other.id == id;
+  }
+
+  @override
+  int get hashCode => id.hashCode;
 }
 
 class ProductDepartmentMapping {

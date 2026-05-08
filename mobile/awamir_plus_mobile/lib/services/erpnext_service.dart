@@ -1666,7 +1666,6 @@ class ErpnextService implements AuthService {
   UserRole _mapUserRole(List<String> roles) {
     const mapping = <String, UserRole>{
       'Awamir System Admin': UserRole.systemAdmin,
-      'System Manager': UserRole.systemAdmin,
       'Awamir Accountant': UserRole.accountant,
       'Awamir Cashier': UserRole.cashier,
       'Awamir Driver': UserRole.driver,

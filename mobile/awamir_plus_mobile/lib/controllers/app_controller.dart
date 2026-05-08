@@ -173,17 +173,22 @@ class AppController extends ChangeNotifier {
       driverOrders = AccessControl.canViewDriverOrders(currentUser)
           ? await _orderRepository.getDriverOrders(currentUser)
           : [];
-      orders = _visibleOrders(await _orderRepository.getOrders());
       supervisorApprovals = AccessControl.canApproveOrders(currentUser)
           ? await _orderRepository.getPendingSupervisorApprovals(currentUser)
           : [];
       distributionOrders = AccessControl.canViewDistribution(currentUser)
           ? await _orderRepository.getDistributionOrders(currentUser)
           : [];
-      productionDepartments = await _orderRepository.getProductionDepartments();
+      productionDepartments =
+          AccessControl.canViewDistribution(currentUser) ||
+              AccessControl.canViewProductionOrders(currentUser) ||
+              currentUser.role == UserRole.systemAdmin
+          ? await _orderRepository.getProductionDepartments()
+          : [];
       productionOrders = AccessControl.canViewProductionOrders(currentUser)
           ? await _orderRepository.getProductionOrders(currentUser)
           : [];
+      orders = await _loadVisibleOrdersForCurrentUser();
       branchPickupOrders = AccessControl.canViewPickupOrders(currentUser)
           ? await _orderRepository.getPickupOrders(currentUser)
           : [];
@@ -938,6 +943,7 @@ class AppController extends ChangeNotifier {
 
     try {
       final updatedOrder = await action();
+      _applyOrderUpdate(updatedOrder);
       await _refreshOperationalLists();
       actionState = const ViewState.success(null);
       notifyListeners();
@@ -1085,31 +1091,158 @@ class AppController extends ChangeNotifier {
 
   Future<void> _refreshOperationalLists() async {
     driverOrders = AccessControl.canViewDriverOrders(currentUser)
-        ? await _orderRepository.getDriverOrders(currentUser)
+        ? await _retainOnRefreshError(
+            driverOrders,
+            () => _orderRepository.getDriverOrders(currentUser),
+          )
         : [];
-    orders = _visibleOrders(await _orderRepository.getOrders());
+    orders = await _retainOnRefreshError(
+      orders,
+      _loadVisibleOrdersForCurrentUser,
+    );
     supervisorApprovals = AccessControl.canApproveOrders(currentUser)
-        ? await _orderRepository.getPendingSupervisorApprovals(currentUser)
+        ? await _retainOnRefreshError(
+            supervisorApprovals,
+            () => _orderRepository.getPendingSupervisorApprovals(currentUser),
+          )
         : [];
     distributionOrders = AccessControl.canViewDistribution(currentUser)
-        ? await _orderRepository.getDistributionOrders(currentUser)
+        ? await _retainOnRefreshError(
+            distributionOrders,
+            () => _orderRepository.getDistributionOrders(currentUser),
+          )
         : [];
     productionOrders = AccessControl.canViewProductionOrders(currentUser)
-        ? await _orderRepository.getProductionOrders(currentUser)
+        ? await _retainOnRefreshError(
+            productionOrders,
+            () => _orderRepository.getProductionOrders(currentUser),
+          )
         : [];
     branchPickupOrders = AccessControl.canViewPickupOrders(currentUser)
-        ? await _orderRepository.getPickupOrders(currentUser)
+        ? await _retainOnRefreshError(
+            branchPickupOrders,
+            () => _orderRepository.getPickupOrders(currentUser),
+          )
         : [];
-    notifications = await _orderRepository.getNotificationsForCurrentUser(
-      currentUser,
+    notifications = await _retainOnRefreshError(
+      notifications,
+      () => _orderRepository.getNotificationsForCurrentUser(currentUser),
     );
     dailyCashClosure = AccessControl.canViewMyCashClosure(currentUser)
-        ? await _paymentRepository.getMyDailyCashClosure(currentUser)
+        ? await _retainOnRefreshError(
+            dailyCashClosure,
+            () => _paymentRepository.getMyDailyCashClosure(currentUser),
+          )
         : null;
     cashierClosures = AccessControl.canViewCashierClosures(currentUser)
-        ? await _paymentRepository.getSubmittedCashClosures(currentUser)
+        ? await _retainOnRefreshError(
+            cashierClosures,
+            () => _paymentRepository.getSubmittedCashClosures(currentUser),
+          )
         : [];
-    await _loadAccountingListsIfAllowed();
+    try {
+      await _loadAccountingListsIfAllowed();
+    } catch (_) {
+      // Post-action refresh should not turn a successful server mutation into a
+      // failed action just because one optional list could not be reloaded.
+    }
+  }
+
+  Future<T> _retainOnRefreshError<T>(
+    T currentValue,
+    Future<T> Function() loader,
+  ) async {
+    try {
+      return await loader();
+    } catch (_) {
+      return currentValue;
+    }
+  }
+
+  Future<List<Order>> _loadVisibleOrdersForCurrentUser() async {
+    if (currentUser.role == UserRole.distributionManager) {
+      return _visibleOrders(
+        distributionOrders.isNotEmpty
+            ? distributionOrders
+            : await _orderRepository.getDistributionOrders(currentUser),
+      );
+    }
+    if (currentUser.role == UserRole.productionUser) {
+      return productionOrders.isNotEmpty
+          ? productionOrders
+          : await _orderRepository.getProductionOrders(currentUser);
+    }
+    if (currentUser.role == UserRole.driver) {
+      return driverOrders.isNotEmpty
+          ? driverOrders
+          : await _orderRepository.getDriverOrders(currentUser);
+    }
+    if (currentUser.role == UserRole.cashier) {
+      return [];
+    }
+    if (currentUser.role == UserRole.accountant) {
+      return [];
+    }
+    return _visibleOrders(await _orderRepository.getOrders());
+  }
+
+  void _applyOrderUpdate(Order updatedOrder) {
+    orders = _replaceOrder(orders, updatedOrder);
+    supervisorApprovals = _replaceOrder(
+      supervisorApprovals,
+      updatedOrder,
+      keep: (order) => order.status == OrderStatus.pendingSupervisorApproval,
+    );
+    distributionOrders = _replaceOrder(
+      distributionOrders,
+      updatedOrder,
+      keep: (order) => {
+        OrderStatus.sentToDistribution,
+        OrderStatus.readyForDelivery,
+        OrderStatus.assignedToDriver,
+        OrderStatus.driverPickedUp,
+        OrderStatus.outForDelivery,
+        OrderStatus.deliveryFailed,
+      }.contains(order.status),
+    );
+    productionOrders = _replaceOrder(
+      productionOrders,
+      updatedOrder,
+      keep: (order) => {
+        OrderStatus.sentToProduction,
+        OrderStatus.inProduction,
+        OrderStatus.productionCompleted,
+        OrderStatus.readyForPickup,
+        OrderStatus.readyForDelivery,
+      }.contains(order.status),
+    );
+    branchPickupOrders = _replaceOrder(
+      branchPickupOrders,
+      updatedOrder,
+      keep: (order) => order.status == OrderStatus.readyForPickup,
+    );
+    driverOrders = _replaceOrder(driverOrders, updatedOrder);
+  }
+
+  List<Order> _replaceOrder(
+    List<Order> source,
+    Order updatedOrder, {
+    bool Function(Order order)? keep,
+  }) {
+    final predicate = keep ?? (_) => true;
+    final replaced = <Order>[];
+    var found = false;
+    for (final order in source) {
+      final next = order.id == updatedOrder.id ? updatedOrder : order;
+      found = found || order.id == updatedOrder.id;
+      if (predicate(next)) {
+        replaced.add(next);
+      }
+    }
+    if (!found && predicate(updatedOrder)) {
+      replaced.insert(0, updatedOrder);
+    }
+    return replaced;
   }
 
   Future<void> _loadAccountingListsIfAllowed() async {
