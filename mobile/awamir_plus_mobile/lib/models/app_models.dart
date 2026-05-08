@@ -224,6 +224,7 @@ extension DepartmentWorkOrderStatusDetails on DepartmentWorkOrderStatus {
 }
 
 enum DeliveryBatchStatus {
+  pending,
   draft,
   assigned,
   pickedUp,
@@ -237,6 +238,8 @@ enum DeliveryBatchStatus {
 extension DeliveryBatchStatusDetails on DeliveryBatchStatus {
   String get label {
     switch (this) {
+      case DeliveryBatchStatus.pending:
+        return 'بانتظار الإسناد';
       case DeliveryBatchStatus.draft:
         return 'مسودة';
       case DeliveryBatchStatus.assigned:

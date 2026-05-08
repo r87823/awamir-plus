@@ -704,7 +704,8 @@ class MockService implements AuthService {
           .where(
             (batch) =>
                 batch.destinationBranch == entry.key &&
-                batch.status == DeliveryBatchStatus.draft,
+                (batch.status == DeliveryBatchStatus.pending ||
+                    batch.status == DeliveryBatchStatus.draft),
           )
           .toList();
       if (existing.isNotEmpty) {
@@ -716,7 +717,7 @@ class MockService implements AuthService {
         batchNumber:
             'DB-${DateTime.now().year}-${_deliveryBatchSequence.toString().padLeft(5, '0')}',
         destinationBranch: entry.key,
-        status: DeliveryBatchStatus.draft,
+        status: DeliveryBatchStatus.pending,
         orders: entry.value.map((order) {
           return DeliveryBatchOrder(
             orderId: order.id,

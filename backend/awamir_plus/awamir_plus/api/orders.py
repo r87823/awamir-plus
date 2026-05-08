@@ -120,6 +120,10 @@ def cancel_order(order=None, order_id=None, reason=None, idempotency_key=None):
             frappe.throw(_("Delivered orders cannot be cancelled."))
         old_status = doc.status
         doc.status = ORDER_STATUS_CANCELLED
+        doc.is_cancelled = 1
+        doc.cancelled_at = now_datetime()
+        doc.cancelled_by = frappe.session.user
+        doc.cancellation_reason = reason
         doc.save(ignore_permissions=True)
         _cancel_related_work_orders(doc.name)
         make_status_log(doc.name, old_status, doc.status, reason)
@@ -198,8 +202,13 @@ def _save_order(order_data, status):
             "longitude": longitude,
             "delivery_notes": data.get("delivery_notes"),
             "delivery_fee": delivery_fee,
+            "priority": data.get("priority") or "normal",
+            "scheduled_at": data.get("scheduled_at"),
             "required_date": data.get("required_date"),
             "required_time": data.get("required_time"),
+            "pickup_time": data.get("pickup_time"),
+            "delivery_window_start": data.get("delivery_window_start"),
+            "delivery_window_end": data.get("delivery_window_end"),
             "order_notes": data.get("order_notes") or data.get("order_details"),
             "customer_notes": data.get("customer_notes"),
             "status": status,

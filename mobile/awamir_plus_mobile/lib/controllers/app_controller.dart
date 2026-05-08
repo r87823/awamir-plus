@@ -186,7 +186,10 @@ class AppController extends ChangeNotifier {
       productionDepartments =
           AccessControl.canViewDistribution(currentUser) ||
               AccessControl.canViewProductionOrders(currentUser) ||
-              currentUser.role == UserRole.systemAdmin
+              AccessControl.hasPermission(
+                currentUser,
+                AppPermission.systemFullAccess,
+              )
           ? await _orderRepository.getProductionDepartments()
           : [];
       productionOrders = AccessControl.canViewProductionOrders(currentUser)
@@ -1146,13 +1149,25 @@ class AppController extends ChangeNotifier {
   }
 
   List<Order> _visibleOrders(List<Order> allOrders) {
-    if (currentUser.role == UserRole.systemAdmin) return allOrders;
-    if (currentUser.role == UserRole.branchEmployee) {
+    if (AccessControl.hasPermission(
+      currentUser,
+      AppPermission.systemFullAccess,
+    )) {
+      return allOrders;
+    }
+    if (AccessControl.hasPermission(currentUser, AppPermission.orderViewOwn) &&
+        !AccessControl.hasPermission(
+          currentUser,
+          AppPermission.orderViewBranch,
+        )) {
       return allOrders
           .where((order) => order.createdByUserId == currentUser.id)
           .toList();
     }
-    if (currentUser.role == UserRole.branchSupervisor) {
+    if (AccessControl.hasPermission(
+      currentUser,
+      AppPermission.orderViewBranch,
+    )) {
       return allOrders
           .where(
             (order) =>
@@ -1161,7 +1176,10 @@ class AppController extends ChangeNotifier {
           )
           .toList();
     }
-    if (currentUser.role == UserRole.distributionManager) {
+    if (AccessControl.hasPermission(
+      currentUser,
+      AppPermission.fulfillmentViewQueue,
+    )) {
       const distributionStatuses = {
         OrderStatus.sentToDistribution,
         OrderStatus.readyForDelivery,
@@ -1174,7 +1192,10 @@ class AppController extends ChangeNotifier {
           .where((order) => distributionStatuses.contains(order.status))
           .toList();
     }
-    if (currentUser.role == UserRole.driver) {
+    if (AccessControl.hasPermission(
+      currentUser,
+      AppPermission.deliveryViewAssigned,
+    )) {
       return driverOrders;
     }
     return allOrders;
@@ -1257,27 +1278,36 @@ class AppController extends ChangeNotifier {
   }
 
   Future<List<Order>> _loadVisibleOrdersForCurrentUser() async {
-    if (currentUser.role == UserRole.distributionManager) {
+    if (AccessControl.hasPermission(
+      currentUser,
+      AppPermission.fulfillmentViewQueue,
+    )) {
       return _visibleOrders(
         distributionOrders.isNotEmpty
             ? distributionOrders
             : await _orderRepository.getDistributionOrders(currentUser),
       );
     }
-    if (currentUser.role == UserRole.productionUser) {
+    if (AccessControl.hasPermission(
+      currentUser,
+      AppPermission.workOrderViewDepartment,
+    )) {
       return productionOrders.isNotEmpty
           ? productionOrders
           : await _orderRepository.getProductionOrders(currentUser);
     }
-    if (currentUser.role == UserRole.driver) {
+    if (AccessControl.hasPermission(
+      currentUser,
+      AppPermission.deliveryViewAssigned,
+    )) {
       return driverOrders.isNotEmpty
           ? driverOrders
           : await _orderRepository.getDriverOrders(currentUser);
     }
-    if (currentUser.role == UserRole.cashier) {
-      return [];
-    }
-    if (currentUser.role == UserRole.accountant) {
+    if (AccessControl.hasAnyPermission(currentUser, {
+      AppPermission.cashboxViewAll,
+      AppPermission.accountingViewFinancials,
+    })) {
       return [];
     }
     return _visibleOrders(await _orderRepository.getOrders());

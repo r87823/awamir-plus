@@ -5,7 +5,7 @@
   "custom": 0,
   "allow_rename": 0,
   "track_changes": 1,
-  "field_order": ["order", "driver", "assigned_by", "assigned_at", "status", "picked_up_at", "out_for_delivery_at", "delivered_at", "failed_at", "failure_reason", "proof_image", "driver_notes"],
+  "field_order": ["order", "driver", "assigned_by", "assigned_at", "status", "picked_up_at", "out_for_delivery_at", "delivered_at", "failed_at", "failure_reason", "proof_section", "received_by_name", "proof_image", "signature_url", "qr_scanned", "driver_notes"],
   "fields": [
     {"fieldname": "order", "label": "Order", "fieldtype": "Link", "options": "Awamir Order Request", "reqd": 1, "in_list_view": 1},
     {"fieldname": "driver", "label": "Driver", "fieldtype": "Link", "options": "User", "reqd": 1, "in_list_view": 1},
@@ -17,7 +17,11 @@
     {"fieldname": "delivered_at", "label": "Delivered At", "fieldtype": "Datetime"},
     {"fieldname": "failed_at", "label": "Failed At", "fieldtype": "Datetime"},
     {"fieldname": "failure_reason", "label": "Failure Reason", "fieldtype": "Small Text"},
+    {"fieldname": "proof_section", "label": "Proof of Delivery", "fieldtype": "Section Break"},
+    {"fieldname": "received_by_name", "label": "Received By Name", "fieldtype": "Data"},
     {"fieldname": "proof_image", "label": "Proof Image", "fieldtype": "Attach Image"},
+    {"fieldname": "signature_url", "label": "Signature URL", "fieldtype": "Data"},
+    {"fieldname": "qr_scanned", "label": "QR Scanned", "fieldtype": "Check", "default": 0},
     {"fieldname": "driver_notes", "label": "Driver Notes", "fieldtype": "Small Text"}
   ],
   "permissions": [
@@ -26,4 +30,3 @@
     {"role": "Awamir System Admin", "read": 1, "write": 1, "create": 1, "delete": 1, "permlevel": 0}
   ]
 }
-

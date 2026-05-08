@@ -140,165 +140,174 @@ class HomeScreen extends StatelessWidget {
   }
 
   List<Widget> _statsForRole() {
-    switch (controller.currentUser.role) {
-      case UserRole.branchEmployee:
-      case UserRole.branchSupervisor:
-      case UserRole.systemAdmin:
-        return [
-          StatCard(
-            icon: Icons.assignment_outlined,
-            value: '${controller.todayOrdersCount}',
-            label: 'طلبات اليوم',
-            iconBackground: const Color(0xFFEDE7F6),
-            iconColor: const Color(0xFF5E35B1),
-            onTap: controller.canAccess(AppFeature.branchOrders)
-                ? () => onOpenFeature(AppFeature.branchOrders)
-                : null,
-          ),
-          StatCard(
-            icon: Icons.hourglass_bottom,
-            value: '${controller.pendingOrdersCount}',
-            label: 'بانتظار الموافقة',
-            iconBackground: const Color(0xFFFFF3E0),
-            iconColor: const Color(0xFFE65100),
-            onTap: controller.canAccess(AppFeature.branchApprovals)
-                ? () => onOpenFeature(AppFeature.branchApprovals)
-                : controller.canAccess(AppFeature.branchOrders)
-                ? () => onOpenFeature(AppFeature.branchOrders)
-                : null,
-          ),
-          StatCard(
-            icon: Icons.monetization_on_outlined,
-            value: formatCurrency(4200, symbol: false),
-            label: 'العربون المستلم',
-            iconBackground: const Color(0xFFFFF8E1),
-            iconColor: AppColors.gold,
-            onTap: controller.canAccess(AppFeature.dailyCashClosure)
-                ? () => onOpenFeature(AppFeature.dailyCashClosure)
-                : null,
-          ),
-          StatCard(
-            icon: Icons.local_shipping_outlined,
-            value: '${controller.todayPickupCount}',
-            label: 'للاستلام اليوم',
-            iconBackground: const Color(0xFFE3F2FD),
-            iconColor: const Color(0xFF1565C0),
-            onTap: controller.canAccess(AppFeature.deliveredOrders)
-                ? () => onOpenFeature(AppFeature.deliveredOrders)
-                : null,
-          ),
-        ];
-      case UserRole.distributionManager:
-        return _roleStats([
-          (Icons.route, '14', 'طلبات للتوزيع', AppFeature.distribution),
-          (
-            Icons.verified_outlined,
-            '9',
-            'طلبات معتمدة',
-            AppFeature.approvedOrders,
-          ),
-          (
-            Icons.local_shipping_outlined,
-            '6',
-            'سائقين متاحين',
-            AppFeature.drivers,
-          ),
-          (
-            Icons.notifications_none,
-            '${controller.unreadNotifications}',
-            'تنبيهات',
-            AppFeature.notifications,
-          ),
-        ]);
-      case UserRole.productionUser:
-        return _roleStats([
-          (
-            Icons.precision_manufacturing,
-            '11',
-            'طلبات التصنيع',
-            AppFeature.manufacturingOrders,
-          ),
-          (
-            Icons.timelapse,
-            '5',
-            'قيد التنفيذ',
-            AppFeature.productionInProgress,
-          ),
-          (
-            Icons.inventory_2_outlined,
-            '3',
-            'جاهزة',
-            AppFeature.readyForPickupDelivery,
-          ),
-          (
-            Icons.check_circle_outline,
-            '8',
-            'منجزة اليوم',
-            AppFeature.readyForPickupDelivery,
-          ),
-        ]);
-      case UserRole.driver:
-        return _roleStats([
-          (
-            Icons.assignment_ind_outlined,
-            '6',
-            'مسندة لي',
-            AppFeature.assignedDeliveries,
-          ),
-          (Icons.near_me_outlined, '2', 'في الطريق', AppFeature.onTheWay),
-          (Icons.done_all, '12', 'تم التسليم', AppFeature.deliveredOrders),
-          (
-            Icons.notifications_none,
-            '${controller.unreadNotifications}',
-            'تنبيهات',
-            AppFeature.notifications,
-          ),
-        ]);
-      case UserRole.cashier:
-        return _roleStats([
-          (
-            Icons.account_balance_wallet_outlined,
-            '8',
-            'عهد الموظفين',
-            AppFeature.employeeCashClosures,
-          ),
-          (
-            Icons.check_circle_outline,
-            '4',
-            'بانتظار القبول',
-            AppFeature.receiveCashClosure,
-          ),
-          (
-            Icons.warning_amber_outlined,
-            '1',
-            'فروقات',
-            AppFeature.cashDifferences,
-          ),
-          (
-            Icons.payments_outlined,
-            formatCurrency(controller.collectedDeposit, symbol: false),
-            'إجمالي العهد',
-            AppFeature.receiveCashClosure,
-          ),
-        ]);
-      case UserRole.accountant:
-        return _roleStats([
-          (Icons.payments_outlined, '24', 'دفعات', AppFeature.payments),
-          (Icons.receipt_long_outlined, '12', 'فواتير', AppFeature.invoices),
-          (
-            Icons.post_add_outlined,
-            '7',
-            'Payment Entry',
-            AppFeature.paymentEntry,
-          ),
-          (
-            Icons.account_balance_outlined,
-            '3',
-            'مراجعة مالية',
-            AppFeature.payments,
-          ),
-        ]);
+    final user = controller.currentUser;
+    if (AccessControl.hasPermission(user, AppPermission.systemFullAccess) ||
+        AccessControl.hasAnyPermission(user, {
+          AppPermission.orderViewOwn,
+          AppPermission.orderViewBranch,
+        })) {
+      return [
+        StatCard(
+          icon: Icons.assignment_outlined,
+          value: '${controller.todayOrdersCount}',
+          label: 'طلبات اليوم',
+          iconBackground: const Color(0xFFEDE7F6),
+          iconColor: const Color(0xFF5E35B1),
+          onTap: controller.canAccess(AppFeature.branchOrders)
+              ? () => onOpenFeature(AppFeature.branchOrders)
+              : null,
+        ),
+        StatCard(
+          icon: Icons.hourglass_bottom,
+          value: '${controller.pendingOrdersCount}',
+          label: 'بانتظار الموافقة',
+          iconBackground: const Color(0xFFFFF3E0),
+          iconColor: const Color(0xFFE65100),
+          onTap: controller.canAccess(AppFeature.branchApprovals)
+              ? () => onOpenFeature(AppFeature.branchApprovals)
+              : controller.canAccess(AppFeature.branchOrders)
+              ? () => onOpenFeature(AppFeature.branchOrders)
+              : null,
+        ),
+        StatCard(
+          icon: Icons.monetization_on_outlined,
+          value: formatCurrency(4200, symbol: false),
+          label: 'العربون المستلم',
+          iconBackground: const Color(0xFFFFF8E1),
+          iconColor: AppColors.gold,
+          onTap: controller.canAccess(AppFeature.dailyCashClosure)
+              ? () => onOpenFeature(AppFeature.dailyCashClosure)
+              : null,
+        ),
+        StatCard(
+          icon: Icons.local_shipping_outlined,
+          value: '${controller.todayPickupCount}',
+          label: 'للاستلام اليوم',
+          iconBackground: const Color(0xFFE3F2FD),
+          iconColor: const Color(0xFF1565C0),
+          onTap: controller.canAccess(AppFeature.deliveredOrders)
+              ? () => onOpenFeature(AppFeature.deliveredOrders)
+              : null,
+        ),
+      ];
     }
+    if (AccessControl.hasPermission(user, AppPermission.fulfillmentViewQueue)) {
+      return _roleStats([
+        (Icons.route, '14', 'طلبات للتوزيع', AppFeature.distribution),
+        (
+          Icons.verified_outlined,
+          '9',
+          'طلبات معتمدة',
+          AppFeature.approvedOrders,
+        ),
+        (
+          Icons.local_shipping_outlined,
+          '6',
+          'سائقين متاحين',
+          AppFeature.drivers,
+        ),
+        (
+          Icons.notifications_none,
+          '${controller.unreadNotifications}',
+          'تنبيهات',
+          AppFeature.notifications,
+        ),
+      ]);
+    }
+    if (AccessControl.hasPermission(
+      user,
+      AppPermission.workOrderViewDepartment,
+    )) {
+      return _roleStats([
+        (
+          Icons.precision_manufacturing,
+          '11',
+          'طلبات التصنيع',
+          AppFeature.manufacturingOrders,
+        ),
+        (Icons.timelapse, '5', 'قيد التنفيذ', AppFeature.productionInProgress),
+        (
+          Icons.inventory_2_outlined,
+          '3',
+          'جاهزة',
+          AppFeature.readyForPickupDelivery,
+        ),
+        (
+          Icons.check_circle_outline,
+          '8',
+          'منجزة اليوم',
+          AppFeature.readyForPickupDelivery,
+        ),
+      ]);
+    }
+    if (AccessControl.hasPermission(user, AppPermission.deliveryViewAssigned)) {
+      return _roleStats([
+        (
+          Icons.assignment_ind_outlined,
+          '6',
+          'مسندة لي',
+          AppFeature.assignedDeliveries,
+        ),
+        (Icons.near_me_outlined, '2', 'في الطريق', AppFeature.onTheWay),
+        (Icons.done_all, '12', 'تم التسليم', AppFeature.deliveredOrders),
+        (
+          Icons.notifications_none,
+          '${controller.unreadNotifications}',
+          'تنبيهات',
+          AppFeature.notifications,
+        ),
+      ]);
+    }
+    if (AccessControl.hasPermission(user, AppPermission.cashboxViewAll)) {
+      return _roleStats([
+        (
+          Icons.account_balance_wallet_outlined,
+          '8',
+          'عهد الموظفين',
+          AppFeature.employeeCashClosures,
+        ),
+        (
+          Icons.check_circle_outline,
+          '4',
+          'بانتظار القبول',
+          AppFeature.receiveCashClosure,
+        ),
+        (
+          Icons.warning_amber_outlined,
+          '1',
+          'فروقات',
+          AppFeature.cashDifferences,
+        ),
+        (
+          Icons.payments_outlined,
+          formatCurrency(controller.collectedDeposit, symbol: false),
+          'إجمالي العهد',
+          AppFeature.receiveCashClosure,
+        ),
+      ]);
+    }
+    if (AccessControl.hasPermission(
+      user,
+      AppPermission.accountingViewFinancials,
+    )) {
+      return _roleStats([
+        (Icons.payments_outlined, '24', 'دفعات', AppFeature.payments),
+        (Icons.receipt_long_outlined, '12', 'فواتير', AppFeature.invoices),
+        (
+          Icons.post_add_outlined,
+          '7',
+          'Payment Entry',
+          AppFeature.paymentEntry,
+        ),
+        (
+          Icons.account_balance_outlined,
+          '3',
+          'مراجعة مالية',
+          AppFeature.payments,
+        ),
+      ]);
+    }
+    return const [];
   }
 
   List<Widget> _roleStats(List<(IconData, String, String, AppFeature)> stats) {

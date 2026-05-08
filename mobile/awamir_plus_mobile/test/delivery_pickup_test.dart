@@ -126,7 +126,7 @@ void main() {
     );
 
     expect(batches, hasLength(1));
-    expect(batches.single.status, DeliveryBatchStatus.draft);
+    expect(batches.single.status, DeliveryBatchStatus.pending);
     expect(
       batches.single.orders.map((order) => order.orderId),
       contains('ORD-0022'),

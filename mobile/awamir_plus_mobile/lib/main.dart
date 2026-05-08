@@ -218,7 +218,10 @@ class _HomeShellState extends State<HomeShell> {
       case AppFeature.cashDifferences:
         return CashierClosuresScreen(controller: _controller);
       case AppFeature.deliveredOrders:
-        return _controller.currentUser.role == UserRole.driver
+        return AccessControl.hasPermission(
+              _controller.currentUser,
+              AppPermission.deliveryViewAssigned,
+            )
             ? DriverOrdersScreen(controller: _controller)
             : PickupOrdersScreen(controller: _controller);
       case AppFeature.notifications:

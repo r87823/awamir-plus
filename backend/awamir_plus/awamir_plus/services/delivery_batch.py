@@ -3,7 +3,8 @@ from frappe import _
 
 from awamir_plus.constants import (
     DELIVERY_BATCH_STATUS_ASSIGNED,
-    DELIVERY_BATCH_STATUS_DRAFT,
+    DELIVERY_BATCH_STATUS_PENDING,
+    DELIVERY_BATCH_OPEN_STATUSES,
     DELIVERY_FLOW_STATUS_ASSIGNED_TO_DRIVER,
     ORDER_STATUS_ASSIGNED_TO_DRIVER,
     ORDER_STATUS_READY_FOR_DELIVERY,
@@ -51,8 +52,8 @@ def assign_batch_to_driver(batch, driver):
         _assign_batch_orders_to_driver(doc, driver)
         doc.save(ignore_permissions=True)
         return doc
-    if doc.status != DELIVERY_BATCH_STATUS_DRAFT:
-        frappe.throw(_("Only draft delivery batches can be assigned."))
+    if doc.status not in DELIVERY_BATCH_OPEN_STATUSES:
+        frappe.throw(_("Only pending delivery batches can be assigned."))
     if not frappe.db.exists("User", driver) or "Awamir Driver" not in frappe.get_roles(driver):
         frappe.throw(_("Driver is not active or does not exist."))
     doc.driver = driver
@@ -103,7 +104,7 @@ def _get_or_create_batch(destination, orders):
         {
             "doctype": "Awamir Delivery Batch",
             "destination_branch": destination,
-            "status": DELIVERY_BATCH_STATUS_DRAFT,
+            "status": DELIVERY_BATCH_STATUS_PENDING,
             "orders": [_batch_order_row(order) for order in orders],
         }
     ).insert(ignore_permissions=True)
@@ -114,7 +115,7 @@ def _find_open_batch(destination):
         "Awamir Delivery Batch",
         filters={
             "destination_branch": destination,
-            "status": DELIVERY_BATCH_STATUS_DRAFT,
+            "status": ["in", DELIVERY_BATCH_OPEN_STATUSES],
         },
         pluck="name",
         limit=1,

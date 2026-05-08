@@ -712,7 +712,7 @@ void main() {
     final batches = await service.createDeliveryBatches(branchId: 'BR-001');
 
     expect(batches.single.id, 'DB-0001');
-    expect(batches.single.status, DeliveryBatchStatus.draft);
+    expect(batches.single.status, DeliveryBatchStatus.pending);
     expect(batches.single.orders.single.orderNumber, 'ORD-2026-00012');
   });
 
@@ -1748,7 +1748,7 @@ Map<String, dynamic> _departmentWorkOrderPayload({String status = 'pending'}) {
 }
 
 Map<String, dynamic> _deliveryBatchPayload({
-  String status = 'draft',
+  String status = 'pending',
   String driver = '',
   String driverName = '',
 }) {

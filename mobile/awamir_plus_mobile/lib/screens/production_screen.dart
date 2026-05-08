@@ -32,7 +32,11 @@ class ProductionScreen extends StatelessWidget {
             children: [
               AppHeader(
                 title: 'طلبات الإنتاج',
-                subtitle: controller.currentUser.role == UserRole.systemAdmin
+                subtitle:
+                    AccessControl.hasPermission(
+                      controller.currentUser,
+                      AppPermission.systemFullAccess,
+                    )
                     ? 'كل جهات التنفيذ'
                     : controller.currentUser.branchName,
                 notificationCount: controller.unreadNotifications,

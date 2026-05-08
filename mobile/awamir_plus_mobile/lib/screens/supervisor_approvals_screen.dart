@@ -32,7 +32,11 @@ class SupervisorApprovalsScreen extends StatelessWidget {
             children: [
               AppHeader(
                 title: 'موافقات الفرع',
-                subtitle: controller.currentUser.role == UserRole.systemAdmin
+                subtitle:
+                    AccessControl.hasPermission(
+                      controller.currentUser,
+                      AppPermission.systemFullAccess,
+                    )
                     ? 'كل الطلبات بانتظار الموافقة'
                     : controller.currentUser.branchName,
                 notificationCount: controller.unreadNotifications,

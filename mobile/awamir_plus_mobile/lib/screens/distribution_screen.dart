@@ -239,7 +239,9 @@ class _DeliveryBatchesSection extends StatelessWidget {
               )
             else
               ...batches.take(5).map((batch) {
-                final canAssign = batch.status == DeliveryBatchStatus.draft;
+                final canAssign =
+                    batch.status == DeliveryBatchStatus.pending ||
+                    batch.status == DeliveryBatchStatus.draft;
                 return Container(
                   margin: const EdgeInsets.only(bottom: 8),
                   padding: const EdgeInsets.all(12),

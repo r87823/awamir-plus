@@ -61,7 +61,14 @@ def get_pickup_orders(limit_start=0, limit_page_length=None):
 
 
 @frappe.whitelist()
-def mark_pickup_order_delivered(order=None, order_id=None):
+def mark_pickup_order_delivered(
+    order=None,
+    order_id=None,
+    received_by_name=None,
+    proof_image_url=None,
+    signature_url=None,
+    qr_scanned=0,
+):
     require_permissions(PERMISSION_ORDER_DELIVER_BRANCH)
     order = order or order_id
     assert_required(order, "Order is required.")
@@ -79,6 +86,11 @@ def mark_pickup_order_delivered(order=None, order_id=None):
         frappe.throw(_("Remaining amount must be collected before delivery."))
     old_status = doc.status
     doc.status = ORDER_STATUS_DELIVERED
+    doc.received_by_name = received_by_name
+    doc.proof_image_url = proof_image_url
+    doc.signature_url = signature_url
+    doc.qr_scanned = 1 if _as_bool(qr_scanned) else 0
+    doc.delivered_at = now()
     doc.save(ignore_permissions=True)
     make_status_log(doc.name, old_status, doc.status, _("Delivered to customer from branch."))
     create_notification(
@@ -331,7 +343,17 @@ def get_driver_orders(status=None, limit_start=0, limit_page_length=None):
 
 
 @frappe.whitelist()
-def update_delivery_status(order=None, new_status=None, proof_image=None, driver_notes=None, status=None, order_id=None):
+def update_delivery_status(
+    order=None,
+    new_status=None,
+    proof_image=None,
+    driver_notes=None,
+    status=None,
+    order_id=None,
+    received_by_name=None,
+    signature_url=None,
+    qr_scanned=0,
+):
     require_any_permissions([PERMISSION_DELIVERY_UPDATE_STATUS, PERMISSION_DELIVERY_CONFIRM_DELIVERED])
     order = order or order_id
     new_status = new_status or status
@@ -356,9 +378,23 @@ def update_delivery_status(order=None, new_status=None, proof_image=None, driver
         frappe.throw(_("Remaining amount must be collected before delivery."))
     old_status = doc.status
     doc.status = new_status
+    if new_status == ORDER_STATUS_DELIVERED:
+        doc.received_by_name = received_by_name
+        doc.proof_image_url = proof_image
+        doc.signature_url = signature_url
+        doc.qr_scanned = 1 if _as_bool(qr_scanned) else 0
+        doc.delivered_at = now()
     _sync_delivery_flow_status(doc, new_status)
     doc.save(ignore_permissions=True)
-    _update_assignment(doc, new_status, proof_image=proof_image, driver_notes=driver_notes)
+    _update_assignment(
+        doc,
+        new_status,
+        proof_image=proof_image,
+        driver_notes=driver_notes,
+        received_by_name=received_by_name,
+        signature_url=signature_url,
+        qr_scanned=qr_scanned,
+    )
     _sync_delivery_batch_order_status(doc)
     make_status_log(doc.name, old_status, new_status, driver_notes)
     _create_delivery_notifications(doc, new_status)
@@ -406,7 +442,16 @@ def collect_delivery_payment(order=None, amount=0, payment_method="Cash", paymen
     )
 
 
-def _update_assignment(order_doc, status, proof_image=None, driver_notes=None, failure_reason=None):
+def _update_assignment(
+    order_doc,
+    status,
+    proof_image=None,
+    driver_notes=None,
+    failure_reason=None,
+    received_by_name=None,
+    signature_url=None,
+    qr_scanned=0,
+):
     assignment_name = frappe.db.get_value("Awamir Delivery Assignment", {"order": order_doc.name, "driver": order_doc.assigned_driver}, "name")
     if not assignment_name:
         return
@@ -419,12 +464,23 @@ def _update_assignment(order_doc, status, proof_image=None, driver_notes=None, f
     elif status == ORDER_STATUS_DELIVERED:
         assignment.delivered_at = now()
         assignment.proof_image = proof_image
+        assignment.received_by_name = received_by_name
+        assignment.signature_url = signature_url
+        assignment.qr_scanned = 1 if _as_bool(qr_scanned) else 0
     elif status == ORDER_STATUS_DELIVERY_FAILED:
         assignment.failed_at = now()
         assignment.failure_reason = failure_reason
     if driver_notes:
         assignment.driver_notes = driver_notes
     assignment.save(ignore_permissions=True)
+
+
+def _as_bool(value):
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return False
+    return str(value).strip().lower() in ("1", "true", "yes", "y")
 
 
 def _sync_delivery_flow_status(order_doc, status):

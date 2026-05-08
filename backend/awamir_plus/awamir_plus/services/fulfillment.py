@@ -217,6 +217,7 @@ def _get_department_mapping(filters):
 
 def _create_department_work_order(order_doc, department, items):
     department_doc = frappe.get_doc("Awamir Production Department", department)
+    capacity = _department_capacity_snapshot(department)
     work_order = frappe.get_doc(
         {
             "doctype": "Awamir Department Work Order",
@@ -225,6 +226,9 @@ def _create_department_work_order(order_doc, department, items):
             "department": department,
             "status": DEPARTMENT_WORK_ORDER_STATUS_PENDING,
             "priority": "Normal",
+            "department_daily_capacity": capacity["daily_capacity"],
+            "department_open_work_orders_count": capacity["open_work_orders_count"],
+            "capacity_warning": capacity["warning"],
             "items": [_work_order_item(row) for row in items],
             "created_by": frappe.session.user,
         }
@@ -240,6 +244,40 @@ def _create_department_work_order(order_doc, department, items):
     )
     _notify_production_users(order_doc, department, work_order)
     return work_order
+
+
+def _department_capacity_snapshot(department):
+    daily_capacity = frappe.db.get_value(
+        "Awamir Production Department",
+        department,
+        "daily_capacity",
+    ) or 0
+    open_count = frappe.db.count(
+        "Awamir Department Work Order",
+        {
+            "department": department,
+            "status": [
+                "in",
+                [
+                    DEPARTMENT_WORK_ORDER_STATUS_PENDING,
+                    DEPARTMENT_WORK_ORDER_STATUS_ACCEPTED,
+                    DEPARTMENT_WORK_ORDER_STATUS_IN_PRODUCTION,
+                    DEPARTMENT_WORK_ORDER_STATUS_DELAYED,
+                ],
+            ],
+        },
+    )
+    warning = None
+    if daily_capacity and open_count + 1 > daily_capacity:
+        warning = _("Department capacity exceeded: {0}/{1} open work orders.").format(
+            open_count + 1,
+            daily_capacity,
+        )
+    return {
+        "daily_capacity": daily_capacity,
+        "open_work_orders_count": open_count + 1,
+        "warning": warning,
+    }
 
 
 def _work_order_item(item):

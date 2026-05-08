@@ -1734,6 +1734,8 @@ class ErpnextService implements AuthService {
 
   String _deliveryBatchStatusKey(DeliveryBatchStatus status) {
     switch (status) {
+      case DeliveryBatchStatus.pending:
+        return 'pending';
       case DeliveryBatchStatus.draft:
         return 'draft';
       case DeliveryBatchStatus.assigned:
@@ -1755,6 +1757,8 @@ class ErpnextService implements AuthService {
 
   DeliveryBatchStatus _mapDeliveryBatchStatus(String value) {
     switch (value) {
+      case 'pending':
+        return DeliveryBatchStatus.pending;
       case 'assigned':
         return DeliveryBatchStatus.assigned;
       case 'picked_up':

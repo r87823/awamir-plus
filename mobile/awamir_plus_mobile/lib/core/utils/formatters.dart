@@ -33,9 +33,9 @@ String normalizeLocalizedDigits(String value) {
 }
 
 String normalizePhoneInput(String value) {
-  return normalizeLocalizedDigits(value)
-      .replaceAll(RegExp(r'[\s\-\(\)\u200e\u200f]'), '')
-      .trim();
+  return normalizeLocalizedDigits(
+    value,
+  ).replaceAll(RegExp(r'[\s\-\(\)\u200e\u200f]'), '').trim();
 }
 
 String formatCurrency(num value, {bool symbol = true}) {

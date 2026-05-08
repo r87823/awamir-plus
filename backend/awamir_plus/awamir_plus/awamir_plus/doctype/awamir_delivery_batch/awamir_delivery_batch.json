@@ -32,7 +32,7 @@
     {"fieldname": "driver", "label": "Driver", "fieldtype": "Link", "options": "User", "in_list_view": 1},
     {"fieldname": "assigned_by", "label": "Assigned By", "fieldtype": "Link", "options": "User"},
     {"fieldname": "assigned_at", "label": "Assigned At", "fieldtype": "Datetime"},
-    {"fieldname": "status", "label": "Status", "fieldtype": "Select", "options": "draft\nassigned\npicked_up\nout_for_delivery\ndelivered\npartially_delivered\nreturned\ncancelled", "default": "draft", "reqd": 1, "in_list_view": 1},
+    {"fieldname": "status", "label": "Status", "fieldtype": "Select", "options": "pending\ndraft\nassigned\npicked_up\nout_for_delivery\ndelivered\npartially_delivered\nreturned\ncancelled", "default": "pending", "reqd": 1, "in_list_view": 1},
     {"fieldname": "orders_count", "label": "Orders Count", "fieldtype": "Int", "read_only": 1},
     {"fieldname": "orders", "label": "Orders", "fieldtype": "Table", "options": "Awamir Delivery Batch Order", "reqd": 1},
     {"fieldname": "timing_section", "label": "Timing", "fieldtype": "Section Break"},
@@ -49,4 +49,3 @@
     {"role": "Awamir System Admin", "read": 1, "write": 1, "create": 1, "delete": 1, "permlevel": 0}
   ]
 }
-

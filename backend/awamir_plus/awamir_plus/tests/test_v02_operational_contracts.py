@@ -5,7 +5,9 @@ from pathlib import Path
 from awamir_plus.constants import (
     DEPARTMENT_WORK_ORDER_STATUSES,
     DELIVERY_BATCH_STATUSES,
+    ORDER_PRIORITIES,
     ORDER_FLOW_STATUSES,
+    PACKING_STATUSES,
     PERMISSION_ORDER_CANCEL,
     ROLE_BRANCH_EMPLOYEE,
     ROLE_DISTRIBUTION_MANAGER,
@@ -29,6 +31,7 @@ class TestV02OperationalContracts(unittest.TestCase):
         for fieldname in [
             "order_status",
             "production_status",
+            "packing_status",
             "delivery_status",
             "payment_status",
             "accounting_status",
@@ -37,12 +40,46 @@ class TestV02OperationalContracts(unittest.TestCase):
 
         status_options = _field(doctype, "order_status")["options"].splitlines()
         self.assertEqual(status_options, ORDER_FLOW_STATUSES)
+        self.assertEqual(_field(doctype, "packing_status")["options"].splitlines(), PACKING_STATUSES)
+
+    def test_order_operational_extension_fields_exist(self):
+        doctype = _load_doctype("awamir_order_request")
+        fieldnames = _fieldnames(doctype)
+
+        for fieldname in [
+            "priority",
+            "scheduled_at",
+            "pickup_time",
+            "delivery_window_start",
+            "delivery_window_end",
+            "received_by_name",
+            "proof_image_url",
+            "signature_url",
+            "qr_scanned",
+            "delivered_at",
+            "is_cancelled",
+            "cancelled_at",
+            "cancelled_by",
+            "cancellation_reason",
+        ]:
+            self.assertIn(fieldname, fieldnames)
+
+        self.assertEqual(_field(doctype, "priority")["options"].splitlines(), ORDER_PRIORITIES)
 
     def test_department_work_order_doctypes_have_required_contract(self):
         work_order = _load_doctype("awamir_department_work_order")
         item = _load_doctype("awamir_department_work_order_item")
 
-        for fieldname in ["work_order_number", "order", "department", "status", "items"]:
+        for fieldname in [
+            "work_order_number",
+            "order",
+            "department",
+            "status",
+            "department_daily_capacity",
+            "department_open_work_orders_count",
+            "capacity_warning",
+            "items",
+        ]:
             self.assertIn(fieldname, _fieldnames(work_order))
         self.assertEqual(_field(work_order, "status")["options"].splitlines(), DEPARTMENT_WORK_ORDER_STATUSES)
 
@@ -59,6 +96,17 @@ class TestV02OperationalContracts(unittest.TestCase):
 
         for fieldname in ["order", "order_number", "customer_name", "customer_phone", "status"]:
             self.assertIn(fieldname, _fieldnames(batch_order))
+
+    def test_delivery_assignment_supports_proof_of_delivery(self):
+        assignment = _load_doctype("awamir_delivery_assignment")
+        for fieldname in [
+            "received_by_name",
+            "proof_image",
+            "signature_url",
+            "qr_scanned",
+            "driver_notes",
+        ]:
+            self.assertIn(fieldname, _fieldnames(assignment))
 
     def test_audit_and_idempotency_doctypes_exist(self):
         audit = _load_doctype("awamir_audit_log")

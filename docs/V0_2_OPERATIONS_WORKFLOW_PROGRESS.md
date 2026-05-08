@@ -58,6 +58,18 @@ This document tracks the first implementation slice of the expanded operations w
   - `awamir_plus.api.orders.cancel_order`
   - Cancels related department work orders without deleting operational records.
   - Blocks cancellation of delivered orders.
+- Added operational extension fields requested in `txt.txt`:
+  - priority and scheduled-order fields.
+  - delivery window and pickup-time fields.
+  - packing status foundation.
+  - proof-of-delivery fields on orders and delivery assignments.
+  - soft cancellation metadata fields.
+- Added delivery batch `pending` status while keeping legacy `draft` compatibility.
+- Added production capacity snapshots on department work orders:
+  - department daily capacity.
+  - current open work order count.
+  - capacity warning message when the count exceeds configured capacity.
+- Removed remaining direct role checks from Flutter operational screen routing and replaced them with permission checks.
 - Added Flutter native models and repository/service contracts for:
   - Department work orders
   - Delivery batches
@@ -151,3 +163,5 @@ Status filters were added where useful for operational queues.
 
 - Run `bench migrate` on the Docker ERPNext site after taking a backup.
 - Smoke test the new production and delivery batch UI against the real server.
+- Optional future expansion: Trip management above Delivery Batches.
+- Optional future expansion: signature/QR capture UI widgets for proof of delivery.

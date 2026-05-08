@@ -17,6 +17,10 @@
     "status",
     "priority",
     "assigned_to",
+    "capacity_section",
+    "department_daily_capacity",
+    "department_open_work_orders_count",
+    "capacity_warning",
     "items",
     "timing_section",
     "accepted_at",
@@ -36,6 +40,10 @@
     {"fieldname": "status", "label": "Status", "fieldtype": "Select", "options": "pending\naccepted\nin_production\ndelayed\nready\nrejected\ncancelled", "default": "pending", "reqd": 1, "in_list_view": 1},
     {"fieldname": "priority", "label": "Priority", "fieldtype": "Select", "options": "Normal\nHigh\nUrgent", "default": "Normal"},
     {"fieldname": "assigned_to", "label": "Assigned To", "fieldtype": "Link", "options": "User"},
+    {"fieldname": "capacity_section", "label": "Capacity Snapshot", "fieldtype": "Section Break"},
+    {"fieldname": "department_daily_capacity", "label": "Department Daily Capacity", "fieldtype": "Int", "read_only": 1},
+    {"fieldname": "department_open_work_orders_count", "label": "Open Work Orders Count", "fieldtype": "Int", "read_only": 1},
+    {"fieldname": "capacity_warning", "label": "Capacity Warning", "fieldtype": "Small Text", "read_only": 1},
     {"fieldname": "items", "label": "Items", "fieldtype": "Table", "options": "Awamir Department Work Order Item", "reqd": 1},
     {"fieldname": "timing_section", "label": "Timing", "fieldtype": "Section Break"},
     {"fieldname": "accepted_at", "label": "Accepted At", "fieldtype": "Datetime"},
@@ -53,4 +61,3 @@
     {"role": "Awamir System Admin", "read": 1, "write": 1, "create": 1, "delete": 1, "permlevel": 0}
   ]
 }
-
