@@ -134,6 +134,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
         return 'مسلّم';
       case OrderStatus.rejected:
         return 'مرفوض';
+      case OrderStatus.cancelled:
+        return 'ملغي';
     }
   }
 }

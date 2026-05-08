@@ -16,6 +16,8 @@ awamir-plus/
     sales-classic.html       # Visual reference only
   docs/
     RELEASE_V0_1.md
+    V0_2_OPERATIONS_WORKFLOW_PROGRESS.md
+    V0_2_DEPLOYMENT_CHECKLIST.md
     API_OVERVIEW.md
     MVP_TEST_SCENARIO.md
     PILOT_TEST_REPORT.md
@@ -72,6 +74,10 @@ python3 -m compileall backend/awamir_plus/awamir_plus
 
 The current pilot release notes are documented in [Awamir Plus Pilot Release v0.1](docs/RELEASE_V0_1.md).
 
+The expanded operations workflow progress for v0.2 is tracked in [v0.2 Operations Workflow Progress](docs/V0_2_OPERATIONS_WORKFLOW_PROGRESS.md).
+
+Deployment and smoke-test steps for v0.2 are documented in [v0.2 Deployment Checklist](docs/V0_2_DEPLOYMENT_CHECKLIST.md).
+
 ## MVP Accounting Notes
 
 Current pilot accounting behavior is controlled through `Awamir App Settings`:
@@ -103,6 +109,8 @@ Real ERPNext demo users are created by the seed script and use the configured de
 ## Documentation
 
 - [Pilot Release v0.1](docs/RELEASE_V0_1.md)
+- [v0.2 Operations Workflow Progress](docs/V0_2_OPERATIONS_WORKFLOW_PROGRESS.md)
+- [v0.2 Deployment Checklist](docs/V0_2_DEPLOYMENT_CHECKLIST.md)
 - [API Overview](docs/API_OVERVIEW.md)
 - [MVP Test Scenario](docs/MVP_TEST_SCENARIO.md)
 - [Pilot Test Report](docs/PILOT_TEST_REPORT.md)

@@ -93,6 +93,9 @@ class ProductionOrderDetailScreen extends StatefulWidget {
 class _ProductionOrderDetailScreenState
     extends State<ProductionOrderDetailScreen> {
   late Order _order = widget.order;
+  late List<DepartmentWorkOrder> _workOrders = List.of(
+    widget.order.departmentWorkOrders,
+  );
   late Future<List<OrderStatusLog>> _logsFuture = widget.controller
       .getOrderStatusLogs(_order.id);
 
@@ -142,6 +145,10 @@ class _ProductionOrderDetailScreenState
                   ],
                 ),
                 _ProductsSection(order: _order),
+                _DepartmentWorkOrdersSection(
+                  workOrders: _workOrders,
+                  onStatus: _updateWorkOrderStatus,
+                ),
                 _AttachmentsSection(order: _order),
                 _StatusLogSection(logsFuture: _logsFuture),
                 _ProductionActions(order: _order, onStatus: _updateStatus),
@@ -176,6 +183,39 @@ class _ProductionOrderDetailScreenState
     });
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('تم تحديث الحالة إلى ${status.label}')),
+    );
+  }
+
+  Future<void> _updateWorkOrderStatus(
+    DepartmentWorkOrder workOrder,
+    DepartmentWorkOrderStatus status,
+  ) async {
+    final updated = await widget.controller.updateWorkOrderStatus(
+      workOrderId: workOrder.id,
+      status: status,
+    );
+    if (!mounted) return;
+    if (updated == null) {
+      final error = widget.controller.actionErrorMessage;
+      if (error != null) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error)));
+      }
+      return;
+    }
+
+    setState(() {
+      final index = _workOrders.indexWhere((item) => item.id == updated.id);
+      if (index == -1) {
+        _workOrders = [updated, ..._workOrders];
+      } else {
+        _workOrders[index] = updated;
+      }
+      _logsFuture = widget.controller.getOrderStatusLogs(_order.id);
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('تم تحديث أمر العمل إلى ${status.label}')),
     );
   }
 }
@@ -411,6 +451,168 @@ class _AttachmentsSection extends StatelessWidget {
                 );
               }).toList(),
             ),
+    );
+  }
+}
+
+class _DepartmentWorkOrdersSection extends StatelessWidget {
+  const _DepartmentWorkOrdersSection({
+    required this.workOrders,
+    required this.onStatus,
+  });
+
+  final List<DepartmentWorkOrder> workOrders;
+  final void Function(DepartmentWorkOrder, DepartmentWorkOrderStatus) onStatus;
+
+  @override
+  Widget build(BuildContext context) {
+    return _SectionShell(
+      title: 'أوامر عمل الأقسام',
+      child: workOrders.isEmpty
+          ? const Text(
+              'لا توجد أوامر عمل أقسام لهذا الطلب',
+              style: TextStyle(
+                color: AppColors.textMuted,
+                fontWeight: FontWeight.w700,
+              ),
+            )
+          : Column(
+              children: workOrders.map((workOrder) {
+                return Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.only(bottom: 10),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.cream,
+                    borderRadius: BorderRadius.circular(AppRadius.sm),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              workOrder.departmentName,
+                              style: const TextStyle(
+                                color: AppColors.navy,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ),
+                          _WorkOrderStatusPill(status: workOrder.status),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      _CompactRow(label: 'رقم الأمر', value: workOrder.id),
+                      _CompactRow(
+                        label: 'الأصناف',
+                        value: workOrder.items.isEmpty
+                            ? '-'
+                            : workOrder.items
+                                  .map(
+                                    (item) => '${item.itemName} × ${item.qty}',
+                                  )
+                                  .join('، '),
+                      ),
+                      if (workOrder.delayReason.isNotEmpty)
+                        _CompactRow(
+                          label: 'سبب التأخير',
+                          value: workOrder.delayReason,
+                        ),
+                      if (workOrder.rejectionReason.isNotEmpty)
+                        _CompactRow(
+                          label: 'سبب الرفض',
+                          value: workOrder.rejectionReason,
+                        ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: _actionsFor(workOrder).map((action) {
+                          return OutlinedButton.icon(
+                            onPressed: () => onStatus(workOrder, action.status),
+                            icon: Icon(action.icon, size: 18),
+                            label: Text(action.label),
+                          );
+                        }).toList(),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+    );
+  }
+
+  List<_WorkOrderAction> _actionsFor(DepartmentWorkOrder workOrder) {
+    switch (workOrder.status) {
+      case DepartmentWorkOrderStatus.pending:
+        return const [
+          _WorkOrderAction(
+            label: 'قبول',
+            status: DepartmentWorkOrderStatus.accepted,
+            icon: Icons.check_circle_outline,
+          ),
+        ];
+      case DepartmentWorkOrderStatus.accepted:
+        return const [
+          _WorkOrderAction(
+            label: 'بدء التنفيذ',
+            status: DepartmentWorkOrderStatus.inProduction,
+            icon: Icons.play_arrow,
+          ),
+        ];
+      case DepartmentWorkOrderStatus.inProduction:
+      case DepartmentWorkOrderStatus.delayed:
+        return const [
+          _WorkOrderAction(
+            label: 'جاهز',
+            status: DepartmentWorkOrderStatus.ready,
+            icon: Icons.task_alt,
+          ),
+        ];
+      case DepartmentWorkOrderStatus.ready:
+      case DepartmentWorkOrderStatus.rejected:
+      case DepartmentWorkOrderStatus.cancelled:
+        return const [];
+    }
+  }
+}
+
+class _WorkOrderAction {
+  const _WorkOrderAction({
+    required this.label,
+    required this.status,
+    required this.icon,
+  });
+
+  final String label;
+  final DepartmentWorkOrderStatus status;
+  final IconData icon;
+}
+
+class _WorkOrderStatusPill extends StatelessWidget {
+  const _WorkOrderStatusPill({required this.status});
+
+  final DepartmentWorkOrderStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: AppColors.goldLight,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        status.label,
+        style: const TextStyle(
+          color: AppColors.navy,
+          fontSize: 11,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
     );
   }
 }

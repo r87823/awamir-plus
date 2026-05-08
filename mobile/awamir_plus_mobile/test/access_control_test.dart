@@ -61,6 +61,25 @@ void main() {
       expect(AccessControl.canAccessFeature(user, feature), isTrue);
     }
   });
+
+  test('permissions drive operational access checks', () {
+    final branchEmployee = _user(UserRole.branchEmployee);
+    final supervisor = _user(UserRole.branchSupervisor);
+    final distribution = _user(UserRole.distributionManager);
+
+    expect(
+      AccessControl.hasPermission(branchEmployee, AppPermission.orderCreate),
+      isTrue,
+    );
+    expect(
+      AccessControl.hasPermission(branchEmployee, AppPermission.orderApprove),
+      isFalse,
+    );
+    expect(AccessControl.canApproveOrders(supervisor), isTrue);
+    expect(AccessControl.canViewDistribution(distribution), isTrue);
+    expect(AccessControl.canCancelOrder(branchEmployee), isTrue);
+    expect(AccessControl.canCancelOrder(distribution), isTrue);
+  });
 }
 
 List<String> _labels(UserRole role) {

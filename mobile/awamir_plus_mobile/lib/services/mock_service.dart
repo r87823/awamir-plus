@@ -15,6 +15,8 @@ class MockService implements AuthService {
       _statusLogs = List.of(_MockData.statusLogs),
       _drivers = List.of(_MockData.drivers),
       _deliveryAssignments = List.of(_MockData.deliveryAssignments),
+      _departmentWorkOrders = List.of(_MockData.departmentWorkOrders),
+      _deliveryBatches = List.of(_MockData.deliveryBatches),
       _orderPayments = List.of(_MockData.orderPayments),
       _cashClosures = List.of(_MockData.cashClosures),
       _cashClosureLogs = List.of(_MockData.cashClosureLogs),
@@ -24,6 +26,8 @@ class MockService implements AuthService {
     _notificationSequence = _notifications.length + 1;
     _paymentSequence = _orderPayments.length + 1;
     _assignmentSequence = _deliveryAssignments.length + 1;
+    _departmentWorkOrderSequence = _departmentWorkOrders.length + 1;
+    _deliveryBatchSequence = _deliveryBatches.length + 1;
     _cashClosureLogSequence = _cashClosureLogs.length + 1;
     _closureSequence = _cashClosures.length + 1;
     _salesOrderSequence = _nextDocumentSequence(
@@ -52,6 +56,8 @@ class MockService implements AuthService {
   final List<OrderStatusLog> _statusLogs;
   final List<DriverProfile> _drivers;
   final List<DeliveryAssignment> _deliveryAssignments;
+  final List<DepartmentWorkOrder> _departmentWorkOrders;
+  final List<DeliveryBatch> _deliveryBatches;
   final List<OrderPayment> _orderPayments;
   final List<DailyCashClosure> _cashClosures;
   final List<CashClosureLog> _cashClosureLogs;
@@ -63,6 +69,8 @@ class MockService implements AuthService {
   int _notificationSequence = 100;
   int _paymentSequence = 1;
   int _assignmentSequence = 1;
+  int _departmentWorkOrderSequence = 1;
+  int _deliveryBatchSequence = 1;
   int _closureSequence = 1;
   int _cashClosureLogSequence = 1;
   int _salesOrderSequence = 1;
@@ -369,6 +377,75 @@ class MockService implements AuthService {
     return updated;
   }
 
+  Future<List<DepartmentWorkOrder>> createDepartmentWorkOrders({
+    required String orderId,
+    String fallbackDepartmentId = '',
+  }) async {
+    final order = _findOrder(orderId);
+    final departmentId = order.productionDepartmentId.isNotEmpty
+        ? order.productionDepartmentId
+        : fallbackDepartmentId.trim();
+    if (departmentId.isEmpty) {
+      throw const RepositoryException(
+        'جهة التنفيذ مطلوبة لإنشاء أوامر العمل',
+        code: 'department_required',
+      );
+    }
+    final existing = _departmentWorkOrders
+        .where(
+          (workOrder) =>
+              workOrder.orderId == order.id &&
+              workOrder.departmentId == departmentId &&
+              workOrder.status != DepartmentWorkOrderStatus.cancelled,
+        )
+        .toList();
+    if (existing.isNotEmpty) return existing;
+
+    final department = _departmentById(departmentId);
+    final workOrder = DepartmentWorkOrder(
+      id: 'DWO-${_departmentWorkOrderSequence.toString().padLeft(4, '0')}',
+      orderId: order.id,
+      departmentId: departmentId,
+      departmentName: department?.name ?? order.productionDepartmentName,
+      status: DepartmentWorkOrderStatus.pending,
+      priority: 'Normal',
+      createdBy: _currentUser?.id ?? '',
+      items: order.lineItems.map((line) {
+        return DepartmentWorkOrderItem(
+          itemCode: line.product.itemCode,
+          itemName: line.product.name,
+          description: line.product.description,
+          qty: line.quantity,
+          rate: line.product.price,
+          amount: line.subtotal,
+          productCategory: line.product.departmentId,
+        );
+      }).toList(),
+    );
+    _departmentWorkOrderSequence++;
+    _departmentWorkOrders.insert(0, workOrder);
+    return [workOrder];
+  }
+
+  Future<List<DepartmentWorkOrder>> getDepartmentWorkOrders({
+    String? orderId,
+    String? departmentId,
+  }) async {
+    return _departmentWorkOrders.where((workOrder) {
+      if (orderId != null &&
+          orderId.isNotEmpty &&
+          workOrder.orderId != orderId) {
+        return false;
+      }
+      if (departmentId != null &&
+          departmentId.isNotEmpty &&
+          workOrder.departmentId != departmentId) {
+        return false;
+      }
+      return true;
+    }).toList();
+  }
+
   Future<List<Order>> getProductionOrders(AppUser user) async {
     if (!AccessControl.canViewProductionOrders(user)) {
       throw const RepositoryException(
@@ -421,6 +498,54 @@ class MockService implements AuthService {
       progress: _progressForStatus(status),
     );
     _createProductionNotifications(order: updated, newStatus: status);
+    return updated;
+  }
+
+  Future<DepartmentWorkOrder> updateWorkOrderStatus({
+    required String workOrderId,
+    required DepartmentWorkOrderStatus status,
+    String notes = '',
+  }) async {
+    final index = _departmentWorkOrders.indexWhere(
+      (workOrder) => workOrder.id == workOrderId,
+    );
+    if (index == -1) {
+      throw const RepositoryException(
+        'أمر العمل غير موجود',
+        code: 'department_work_order_not_found',
+      );
+    }
+    final workOrder = _departmentWorkOrders[index];
+    final updated = DepartmentWorkOrder(
+      id: workOrder.id,
+      orderId: workOrder.orderId,
+      departmentId: workOrder.departmentId,
+      departmentName: workOrder.departmentName,
+      status: status,
+      productionCenter: workOrder.productionCenter,
+      priority: workOrder.priority,
+      items: workOrder.items,
+      createdBy: workOrder.createdBy,
+      acceptedAt: status == DepartmentWorkOrderStatus.accepted
+          ? DateTime.now()
+          : workOrder.acceptedAt,
+      startedAt: status == DepartmentWorkOrderStatus.inProduction
+          ? DateTime.now()
+          : workOrder.startedAt,
+      readyAt: status == DepartmentWorkOrderStatus.ready
+          ? DateTime.now()
+          : workOrder.readyAt,
+      rejectedAt: status == DepartmentWorkOrderStatus.rejected
+          ? DateTime.now()
+          : workOrder.rejectedAt,
+      delayReason: status == DepartmentWorkOrderStatus.delayed
+          ? notes.trim()
+          : workOrder.delayReason,
+      rejectionReason: status == DepartmentWorkOrderStatus.rejected
+          ? notes.trim()
+          : workOrder.rejectionReason,
+    );
+    _departmentWorkOrders[index] = updated;
     return updated;
   }
 
@@ -555,6 +680,117 @@ class MockService implements AuthService {
           );
         })
         .toList();
+  }
+
+  Future<List<DeliveryBatch>> createDeliveryBatches({String? branchId}) async {
+    final orders = _orders.where((order) {
+      if (order.status != OrderStatus.readyForDelivery) return false;
+      if (branchId == null || branchId.isEmpty) return true;
+      return order.pickupBranchId == branchId ||
+          order.createdBranchId == branchId;
+    }).toList();
+    final grouped = <String, List<Order>>{};
+    for (final order in orders) {
+      final destination = order.pickupBranchId.isNotEmpty
+          ? order.pickupBranchId
+          : order.createdBranchId;
+      if (destination.isEmpty) continue;
+      grouped.putIfAbsent(destination, () => []).add(order);
+    }
+
+    final batches = <DeliveryBatch>[];
+    for (final entry in grouped.entries) {
+      final existing = _deliveryBatches
+          .where(
+            (batch) =>
+                batch.destinationBranch == entry.key &&
+                batch.status == DeliveryBatchStatus.draft,
+          )
+          .toList();
+      if (existing.isNotEmpty) {
+        batches.add(existing.first);
+        continue;
+      }
+      final batch = DeliveryBatch(
+        id: 'DB-${_deliveryBatchSequence.toString().padLeft(4, '0')}',
+        batchNumber:
+            'DB-${DateTime.now().year}-${_deliveryBatchSequence.toString().padLeft(5, '0')}',
+        destinationBranch: entry.key,
+        status: DeliveryBatchStatus.draft,
+        orders: entry.value.map((order) {
+          return DeliveryBatchOrder(
+            orderId: order.id,
+            orderNumber: order.id,
+            customerName: order.customer,
+            customerPhone: order.customerPhone,
+            status: order.status,
+          );
+        }).toList(),
+      );
+      _deliveryBatchSequence++;
+      _deliveryBatches.insert(0, batch);
+      batches.add(batch);
+    }
+    return batches;
+  }
+
+  Future<List<DeliveryBatch>> getDeliveryBatches({
+    DeliveryBatchStatus? status,
+    String? destinationBranch,
+  }) async {
+    return _deliveryBatches.where((batch) {
+      if (status != null && batch.status != status) return false;
+      if (destinationBranch != null &&
+          destinationBranch.isNotEmpty &&
+          batch.destinationBranch != destinationBranch) {
+        return false;
+      }
+      return true;
+    }).toList();
+  }
+
+  Future<DeliveryBatch> assignDeliveryBatch({
+    required String batchId,
+    required String driverId,
+  }) async {
+    if (driverId.trim().isEmpty) {
+      throw const RepositoryException(
+        'اختيار السائق مطلوب',
+        code: 'driver_required',
+      );
+    }
+    final driver = _driverById(driverId);
+    if (driver == null) {
+      throw const RepositoryException(
+        'السائق غير موجود',
+        code: 'driver_not_found',
+      );
+    }
+    final index = _deliveryBatches.indexWhere((batch) => batch.id == batchId);
+    if (index == -1) {
+      throw const RepositoryException(
+        'دفعة التوصيل غير موجودة',
+        code: 'delivery_batch_not_found',
+      );
+    }
+    final batch = _deliveryBatches[index];
+    if (batch.status == DeliveryBatchStatus.assigned &&
+        batch.driverId == driver.id) {
+      return batch;
+    }
+    final updated = DeliveryBatch(
+      id: batch.id,
+      batchNumber: batch.batchNumber,
+      destinationBranch: batch.destinationBranch,
+      status: DeliveryBatchStatus.assigned,
+      driverId: driver.id,
+      driverName: driver.fullName,
+      assignedBy: _currentUser?.id ?? '',
+      assignedAt: DateTime.now(),
+      orders: batch.orders,
+    );
+    _deliveryBatches[index] = updated;
+    return updated;
   }
 
   Future<Order> assignDriverToOrder({
@@ -929,6 +1165,50 @@ class MockService implements AuthService {
       message: 'تم إرجاع الطلب رقم ${order.id} للتعديل',
       relatedOrderId: order.id,
       type: NotificationType.orderReturned,
+    );
+
+    return updated;
+  }
+
+  Future<Order> cancelOrder({
+    required String orderId,
+    required AppUser changedBy,
+    required String reason,
+  }) async {
+    if (reason.trim().isEmpty) {
+      throw const RepositoryException(
+        'سبب الإلغاء مطلوب',
+        code: 'cancellation_reason_required',
+      );
+    }
+    if (!AccessControl.canCancelOrder(changedBy)) {
+      throw const RepositoryException(
+        'ليس لديك صلاحية إلغاء الطلبات',
+        code: 'order_cancel_forbidden',
+      );
+    }
+
+    final order = _findOrder(orderId);
+    if (order.status == OrderStatus.delivered) {
+      throw const RepositoryException(
+        'لا يمكن إلغاء طلب تم تسليمه',
+        code: 'delivered_order_cancel_forbidden',
+      );
+    }
+    final updated = _updateOrderStatus(
+      order: order,
+      newStatus: OrderStatus.cancelled,
+      changedBy: changedBy,
+      notes: reason.trim(),
+      progress: 0,
+    );
+
+    _createNotificationForUser(
+      userId: order.createdByUserId,
+      title: 'تم إلغاء الطلب',
+      message: 'تم إلغاء الطلب رقم ${order.id}',
+      relatedOrderId: order.id,
+      type: NotificationType.general,
     );
 
     return updated;
@@ -2149,6 +2429,13 @@ class MockService implements AuthService {
   DriverProfile? _driverById(String id) {
     for (final driver in _drivers) {
       if (driver.id == id) return driver;
+    }
+    return null;
+  }
+
+  ProductionDepartment? _departmentById(String id) {
+    for (final department in _MockData.productionDepartments) {
+      if (department.id == id) return department;
     }
     return null;
   }
@@ -3552,6 +3839,9 @@ class _MockData {
       notes: 'تمت الموافقة وإرسال الطلب للتوزيع',
     ),
   ];
+
+  static const departmentWorkOrders = <DepartmentWorkOrder>[];
+  static const deliveryBatches = <DeliveryBatch>[];
 
   static const pickupOrders = [
     TodayPickupOrder(

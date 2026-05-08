@@ -114,124 +114,276 @@ extension AppFeatureDetails on AppFeature {
   }
 }
 
+enum AppPermission {
+  orderCreate('order.create'),
+  orderViewOwn('order.view_own'),
+  orderViewBranch('order.view_branch'),
+  orderEditDraft('order.edit_draft'),
+  orderCancel('order.cancel'),
+  orderApprove('order.approve'),
+  orderReject('order.reject'),
+  orderReturnForEdit('order.return_for_edit'),
+  orderDeliverBranch('order.deliver_branch'),
+  fulfillmentViewQueue('fulfillment.view_queue'),
+  fulfillmentCreate('fulfillment.create'),
+  fulfillmentSplitByDepartment('fulfillment.split_by_department'),
+  fulfillmentCreateWorkOrders('fulfillment.create_department_work_orders'),
+  fulfillmentAssignDepartment('fulfillment.assign_department'),
+  fulfillmentViewDepartmentStatus('fulfillment.view_department_status'),
+  workOrderViewDepartment('work_order.view_department'),
+  workOrderAccept('work_order.accept'),
+  workOrderReject('work_order.reject'),
+  workOrderUpdateStatus('work_order.update_status'),
+  productionMarkReady('production.mark_ready'),
+  deliveryBatchCreate('delivery_batch.create'),
+  deliveryBatchAssignDriver('delivery_batch.assign_driver'),
+  deliveryBatchView('delivery_batch.view'),
+  deliveryBatchViewAssigned('delivery_batch.view_assigned'),
+  deliveryBatchUpdateStatus('delivery_batch.update_status'),
+  deliveryViewAll('delivery.view_all'),
+  deliveryViewAssigned('delivery.view_assigned'),
+  deliveryUpdateStatus('delivery.update_status'),
+  deliveryConfirmDelivered('delivery.confirm_delivered'),
+  deliveryCollectCash('delivery.collect_cash'),
+  paymentCollectBranch('payment.collect_branch'),
+  cashboxViewOwn('cashbox.view_own'),
+  cashboxViewAll('cashbox.view_all'),
+  cashboxReview('cashbox.review'),
+  cashboxApprove('cashbox.approve'),
+  cashboxReturn('cashbox.return'),
+  cashboxCloseDay('cashbox.close_day'),
+  accountingViewFinancials('accounting.view_financials'),
+  accountingReviewInvoice('accounting.review_invoice'),
+  accountingSubmitInvoice('accounting.submit_invoice'),
+  accountingReviewPayment('accounting.review_payment'),
+  accountingSubmitPayment('accounting.submit_payment'),
+  accountingReconcilePayments('accounting.reconcile_payments'),
+  accountingViewReports('accounting.view_reports'),
+  accountingCloseFinancialDay('accounting.close_financial_day'),
+  adminManageUsers('admin.manage_users'),
+  adminManageRoles('admin.manage_roles'),
+  adminManagePermissions('admin.manage_permissions'),
+  adminManageBranches('admin.manage_branches'),
+  adminManageDepartments('admin.manage_departments'),
+  adminManageSettings('admin.manage_settings'),
+  adminManageWorkflows('admin.manage_workflows'),
+  adminViewAuditLogs('admin.view_audit_logs'),
+  systemFullAccess('system.full_access');
+
+  const AppPermission(this.key);
+
+  final String key;
+}
+
 class AccessControl {
   const AccessControl._();
 
-  static bool canCreateOrder(AppUser user) =>
-      _hasRole(user, {UserRole.branchEmployee, UserRole.systemAdmin});
+  static const Map<UserRole, Set<AppPermission>> _rolePermissions = {
+    UserRole.branchEmployee: {
+      AppPermission.orderCreate,
+      AppPermission.orderViewOwn,
+      AppPermission.orderEditDraft,
+      AppPermission.orderCancel,
+      AppPermission.orderDeliverBranch,
+      AppPermission.paymentCollectBranch,
+      AppPermission.cashboxViewOwn,
+    },
+    UserRole.branchSupervisor: {
+      AppPermission.orderViewBranch,
+      AppPermission.orderCancel,
+      AppPermission.orderApprove,
+      AppPermission.orderReject,
+      AppPermission.orderReturnForEdit,
+      AppPermission.orderDeliverBranch,
+      AppPermission.fulfillmentCreate,
+    },
+    UserRole.distributionManager: {
+      AppPermission.fulfillmentViewQueue,
+      AppPermission.orderCancel,
+      AppPermission.fulfillmentSplitByDepartment,
+      AppPermission.fulfillmentCreateWorkOrders,
+      AppPermission.fulfillmentAssignDepartment,
+      AppPermission.fulfillmentViewDepartmentStatus,
+      AppPermission.deliveryBatchCreate,
+      AppPermission.deliveryBatchAssignDriver,
+      AppPermission.deliveryBatchView,
+      AppPermission.deliveryViewAll,
+    },
+    UserRole.productionUser: {
+      AppPermission.workOrderViewDepartment,
+      AppPermission.workOrderAccept,
+      AppPermission.workOrderReject,
+      AppPermission.workOrderUpdateStatus,
+      AppPermission.productionMarkReady,
+    },
+    UserRole.driver: {
+      AppPermission.deliveryBatchViewAssigned,
+      AppPermission.deliveryBatchUpdateStatus,
+      AppPermission.deliveryViewAssigned,
+      AppPermission.deliveryUpdateStatus,
+      AppPermission.deliveryConfirmDelivered,
+      AppPermission.deliveryCollectCash,
+      AppPermission.cashboxViewOwn,
+    },
+    UserRole.cashier: {
+      AppPermission.cashboxViewAll,
+      AppPermission.cashboxReview,
+      AppPermission.cashboxApprove,
+      AppPermission.cashboxReturn,
+      AppPermission.cashboxCloseDay,
+    },
+    UserRole.accountant: {
+      AppPermission.accountingViewFinancials,
+      AppPermission.accountingReviewInvoice,
+      AppPermission.accountingSubmitInvoice,
+      AppPermission.accountingReviewPayment,
+      AppPermission.accountingSubmitPayment,
+      AppPermission.accountingReconcilePayments,
+      AppPermission.accountingViewReports,
+      AppPermission.accountingCloseFinancialDay,
+    },
+    UserRole.systemAdmin: {
+      AppPermission.systemFullAccess,
+      AppPermission.adminManageUsers,
+      AppPermission.adminManageRoles,
+      AppPermission.adminManagePermissions,
+      AppPermission.adminManageBranches,
+      AppPermission.adminManageDepartments,
+      AppPermission.adminManageSettings,
+      AppPermission.adminManageWorkflows,
+      AppPermission.adminViewAuditLogs,
+    },
+  };
 
-  static bool canViewBranchOrders(AppUser user) => _hasRole(user, {
-    UserRole.branchEmployee,
-    UserRole.branchSupervisor,
-    UserRole.systemAdmin,
+  static Set<AppPermission> permissionsFor(AppUser user) {
+    if (!user.isActive) return const {};
+    if (user.role == UserRole.systemAdmin) return AppPermission.values.toSet();
+    return _rolePermissions[user.role] ?? const {};
+  }
+
+  static bool hasPermission(AppUser user, AppPermission permission) {
+    final permissions = permissionsFor(user);
+    return permissions.contains(AppPermission.systemFullAccess) ||
+        permissions.contains(permission);
+  }
+
+  static bool hasAnyPermission(
+    AppUser user,
+    Iterable<AppPermission> permissions,
+  ) {
+    return permissions.any((permission) => hasPermission(user, permission));
+  }
+
+  static bool hasAllPermissions(
+    AppUser user,
+    Iterable<AppPermission> permissions,
+  ) {
+    return permissions.every((permission) => hasPermission(user, permission));
+  }
+
+  static bool canCreateOrder(AppUser user) =>
+      hasPermission(user, AppPermission.orderCreate);
+
+  static bool canViewBranchOrders(AppUser user) => hasAnyPermission(user, {
+    AppPermission.orderViewOwn,
+    AppPermission.orderViewBranch,
   });
 
   static bool canApproveOrders(AppUser user) =>
-      _hasRole(user, {UserRole.branchSupervisor, UserRole.systemAdmin});
+      hasPermission(user, AppPermission.orderApprove);
 
-  static bool canDistributeOrders(AppUser user) =>
-      _hasRole(user, {UserRole.distributionManager, UserRole.systemAdmin});
+  static bool canCancelOrder(AppUser user) =>
+      hasPermission(user, AppPermission.orderCancel);
+
+  static bool canDistributeOrders(AppUser user) => canViewDistribution(user);
 
   static bool canViewDistribution(AppUser user) =>
-      _hasRole(user, {UserRole.distributionManager, UserRole.systemAdmin});
+      hasPermission(user, AppPermission.fulfillmentViewQueue);
 
   static bool canAssignProductionDepartment(AppUser user) =>
-      _hasRole(user, {UserRole.distributionManager, UserRole.systemAdmin});
+      hasPermission(user, AppPermission.fulfillmentAssignDepartment);
 
   static bool canViewProductionOrders(AppUser user) =>
-      _hasRole(user, {UserRole.productionUser, UserRole.systemAdmin});
+      hasPermission(user, AppPermission.workOrderViewDepartment);
 
-  static bool canUpdateProductionStatus(AppUser user) =>
-      _hasRole(user, {UserRole.productionUser, UserRole.systemAdmin});
+  static bool canUpdateProductionStatus(AppUser user) => hasAnyPermission(
+    user,
+    {AppPermission.workOrderUpdateStatus, AppPermission.productionMarkReady},
+  );
 
   static bool canUpdateProduction(AppUser user) =>
-      _hasRole(user, {UserRole.productionUser, UserRole.systemAdmin});
+      canUpdateProductionStatus(user);
 
   static bool canAssignDriver(AppUser user) =>
-      _hasRole(user, {UserRole.distributionManager, UserRole.systemAdmin});
+      hasPermission(user, AppPermission.deliveryBatchAssignDriver);
 
-  static bool canViewPickupOrders(AppUser user) => _hasRole(user, {
-    UserRole.branchEmployee,
-    UserRole.branchSupervisor,
-    UserRole.systemAdmin,
+  static bool canViewPickupOrders(AppUser user) => hasAnyPermission(user, {
+    AppPermission.orderDeliverBranch,
+    AppPermission.orderViewBranch,
   });
 
-  static bool canDeliverPickupOrder(AppUser user) => _hasRole(user, {
-    UserRole.branchEmployee,
-    UserRole.branchSupervisor,
-    UserRole.systemAdmin,
-  });
+  static bool canDeliverPickupOrder(AppUser user) =>
+      hasPermission(user, AppPermission.orderDeliverBranch);
 
   static bool canViewDriverOrders(AppUser user) =>
-      _hasRole(user, {UserRole.driver, UserRole.systemAdmin});
+      hasPermission(user, AppPermission.deliveryViewAssigned);
 
   static bool canUpdateDeliveryStatus(AppUser user) =>
-      _hasRole(user, {UserRole.driver, UserRole.systemAdmin});
+      hasPermission(user, AppPermission.deliveryUpdateStatus);
 
   static bool canCollectDeliveryPayment(AppUser user) =>
-      _hasRole(user, {UserRole.driver, UserRole.systemAdmin});
+      hasPermission(user, AppPermission.deliveryCollectCash);
 
   static bool canOverrideDeliveryWithoutFullPayment(AppUser user) =>
-      _hasRole(user, {UserRole.systemAdmin});
+      hasPermission(user, AppPermission.systemFullAccess);
 
-  static bool canUpdateDelivery(AppUser user) =>
-      _hasRole(user, {UserRole.driver, UserRole.systemAdmin});
+  static bool canUpdateDelivery(AppUser user) => canUpdateDeliveryStatus(user);
 
-  static bool canViewDailyCashClosure(AppUser user) => _hasRole(user, {
-    UserRole.branchEmployee,
-    UserRole.driver,
-    UserRole.cashier,
-    UserRole.accountant,
-    UserRole.systemAdmin,
+  static bool canViewDailyCashClosure(AppUser user) => hasAnyPermission(user, {
+    AppPermission.cashboxViewOwn,
+    AppPermission.cashboxViewAll,
+    AppPermission.accountingViewFinancials,
   });
 
   static bool canSubmitDailyCashClosure(AppUser user) =>
       canSubmitCashClosure(user);
 
-  static bool canViewMyCashClosure(AppUser user) => _hasRole(user, {
-    UserRole.branchEmployee,
-    UserRole.driver,
-    UserRole.systemAdmin,
-  });
+  static bool canViewMyCashClosure(AppUser user) =>
+      hasPermission(user, AppPermission.cashboxViewOwn);
 
-  static bool canSubmitCashClosure(AppUser user) => _hasRole(user, {
-    UserRole.branchEmployee,
-    UserRole.driver,
-    UserRole.systemAdmin,
-  });
+  static bool canSubmitCashClosure(AppUser user) =>
+      hasPermission(user, AppPermission.cashboxViewOwn);
 
   static bool canViewCashierClosures(AppUser user) =>
-      _hasRole(user, {UserRole.cashier, UserRole.systemAdmin});
+      hasPermission(user, AppPermission.cashboxViewAll);
 
   static bool canReviewCashClosure(AppUser user) =>
-      _hasRole(user, {UserRole.cashier, UserRole.systemAdmin});
+      hasPermission(user, AppPermission.cashboxReview);
 
   static bool canAcceptCashClosure(AppUser user) =>
-      _hasRole(user, {UserRole.cashier, UserRole.systemAdmin});
+      hasPermission(user, AppPermission.cashboxApprove);
 
   static bool canReturnCashClosure(AppUser user) =>
-      _hasRole(user, {UserRole.cashier, UserRole.systemAdmin});
+      hasPermission(user, AppPermission.cashboxReturn);
 
   static bool canCloseCashClosure(AppUser user) =>
-      _hasRole(user, {UserRole.cashier, UserRole.systemAdmin});
+      hasPermission(user, AppPermission.cashboxCloseDay);
 
-  static bool canViewClosureDifferences(AppUser user) => _hasRole(user, {
-    UserRole.cashier,
-    UserRole.accountant,
-    UserRole.systemAdmin,
-  });
+  static bool canViewClosureDifferences(AppUser user) => hasAnyPermission(
+    user,
+    {AppPermission.cashboxReview, AppPermission.accountingViewFinancials},
+  );
 
-  static bool canReceiveCashClosure(AppUser user) =>
-      _hasRole(user, {UserRole.cashier, UserRole.systemAdmin});
+  static bool canReceiveCashClosure(AppUser user) => canReviewCashClosure(user);
 
   static bool canManagePayments(AppUser user) =>
-      _hasRole(user, {UserRole.accountant, UserRole.systemAdmin});
+      hasPermission(user, AppPermission.accountingReviewPayment);
 
   static bool canManageAccounting(AppUser user) =>
-      _hasRole(user, {UserRole.accountant, UserRole.systemAdmin});
+      hasPermission(user, AppPermission.accountingViewFinancials);
 
   static bool canManageSettings(AppUser user) =>
-      _hasRole(user, {UserRole.systemAdmin});
+      hasPermission(user, AppPermission.adminManageSettings);
 
   static bool canAccessFeature(AppUser user, AppFeature feature) {
     if (!user.isActive) return false;
@@ -352,6 +504,6 @@ class AccessControl {
     return [AppFeature.home, ...roleFeatures(user)].take(5).toList();
   }
 
-  static bool _hasRole(AppUser user, Set<UserRole> roles) =>
-      user.isActive && roles.contains(user.role);
+  static bool hasRole(AppUser user, UserRole role) =>
+      user.isActive && user.role == role;
 }

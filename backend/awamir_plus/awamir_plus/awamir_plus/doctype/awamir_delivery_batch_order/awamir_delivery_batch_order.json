@@ -1,0 +1,17 @@
+{
+  "doctype": "DocType",
+  "name": "Awamir Delivery Batch Order",
+  "module": "Awamir Plus",
+  "istable": 1,
+  "custom": 0,
+  "editable_grid": 1,
+  "field_order": ["order", "order_number", "customer_name", "customer_phone", "status"],
+  "fields": [
+    {"fieldname": "order", "label": "Order", "fieldtype": "Link", "options": "Awamir Order Request", "reqd": 1, "in_list_view": 1},
+    {"fieldname": "order_number", "label": "Order Number", "fieldtype": "Data", "read_only": 1, "in_list_view": 1},
+    {"fieldname": "customer_name", "label": "Customer Name", "fieldtype": "Data", "read_only": 1},
+    {"fieldname": "customer_phone", "label": "Customer Phone", "fieldtype": "Data", "read_only": 1},
+    {"fieldname": "status", "label": "Status", "fieldtype": "Data", "read_only": 1, "in_list_view": 1}
+  ],
+  "permissions": []
+}

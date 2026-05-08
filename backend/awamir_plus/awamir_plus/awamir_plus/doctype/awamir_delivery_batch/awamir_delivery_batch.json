@@ -1,0 +1,52 @@
+{
+  "doctype": "DocType",
+  "name": "Awamir Delivery Batch",
+  "module": "Awamir Plus",
+  "custom": 0,
+  "allow_rename": 0,
+  "track_changes": 1,
+  "autoname": "field:batch_number",
+  "title_field": "batch_number",
+  "sort_field": "modified",
+  "sort_order": "DESC",
+  "field_order": [
+    "batch_number",
+    "destination_branch",
+    "driver",
+    "assigned_by",
+    "assigned_at",
+    "status",
+    "orders_count",
+    "orders",
+    "timing_section",
+    "picked_up_at",
+    "out_for_delivery_at",
+    "delivered_at",
+    "returned_at",
+    "notes",
+    "created_by"
+  ],
+  "fields": [
+    {"fieldname": "batch_number", "label": "Batch Number", "fieldtype": "Data", "read_only": 1, "unique": 1, "in_list_view": 1},
+    {"fieldname": "destination_branch", "label": "Destination Branch", "fieldtype": "Link", "options": "Branch", "reqd": 1, "in_list_view": 1},
+    {"fieldname": "driver", "label": "Driver", "fieldtype": "Link", "options": "User", "in_list_view": 1},
+    {"fieldname": "assigned_by", "label": "Assigned By", "fieldtype": "Link", "options": "User"},
+    {"fieldname": "assigned_at", "label": "Assigned At", "fieldtype": "Datetime"},
+    {"fieldname": "status", "label": "Status", "fieldtype": "Select", "options": "draft\nassigned\npicked_up\nout_for_delivery\ndelivered\npartially_delivered\nreturned\ncancelled", "default": "draft", "reqd": 1, "in_list_view": 1},
+    {"fieldname": "orders_count", "label": "Orders Count", "fieldtype": "Int", "read_only": 1},
+    {"fieldname": "orders", "label": "Orders", "fieldtype": "Table", "options": "Awamir Delivery Batch Order", "reqd": 1},
+    {"fieldname": "timing_section", "label": "Timing", "fieldtype": "Section Break"},
+    {"fieldname": "picked_up_at", "label": "Picked Up At", "fieldtype": "Datetime"},
+    {"fieldname": "out_for_delivery_at", "label": "Out For Delivery At", "fieldtype": "Datetime"},
+    {"fieldname": "delivered_at", "label": "Delivered At", "fieldtype": "Datetime"},
+    {"fieldname": "returned_at", "label": "Returned At", "fieldtype": "Datetime"},
+    {"fieldname": "notes", "label": "Notes", "fieldtype": "Small Text"},
+    {"fieldname": "created_by", "label": "Created By", "fieldtype": "Link", "options": "User", "read_only": 1}
+  ],
+  "permissions": [
+    {"role": "Awamir Distribution Manager", "read": 1, "write": 1, "create": 1, "permlevel": 0},
+    {"role": "Awamir Driver", "read": 1, "write": 1, "permlevel": 0},
+    {"role": "Awamir System Admin", "read": 1, "write": 1, "create": 1, "delete": 1, "permlevel": 0}
+  ]
+}
+

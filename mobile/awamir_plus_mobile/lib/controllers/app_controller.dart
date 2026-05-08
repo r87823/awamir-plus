@@ -91,6 +91,7 @@ class AppController extends ChangeNotifier {
   List<Order> productionOrders = [];
   List<Order> branchPickupOrders = [];
   List<Order> driverOrders = [];
+  List<DeliveryBatch> deliveryBatches = [];
   List<ProductionDepartment> productionDepartments = [];
   List<AppNotification> notifications = [];
   List<TodayPickupOrder> pickupOrders = [];
@@ -178,6 +179,9 @@ class AppController extends ChangeNotifier {
           : [];
       distributionOrders = AccessControl.canViewDistribution(currentUser)
           ? await _orderRepository.getDistributionOrders(currentUser)
+          : [];
+      deliveryBatches = AccessControl.canViewDistribution(currentUser)
+          ? await _orderRepository.getDeliveryBatches()
           : [];
       productionDepartments =
           AccessControl.canViewDistribution(currentUser) ||
@@ -439,6 +443,7 @@ class AppController extends ChangeNotifier {
       distributionOrders = await _orderRepository.getDistributionOrders(
         currentUser,
       );
+      deliveryBatches = await _orderRepository.getDeliveryBatches();
       productionDepartments = await _orderRepository.getProductionDepartments();
       actionState = const ViewState.success(null);
     } on AppException catch (error) {
@@ -576,6 +581,44 @@ class AppController extends ChangeNotifier {
     return null;
   }
 
+  Future<DepartmentWorkOrder?> updateWorkOrderStatus({
+    required String workOrderId,
+    required DepartmentWorkOrderStatus status,
+    String notes = '',
+  }) async {
+    actionState = const ViewState.loading();
+    notifyListeners();
+
+    try {
+      final workOrder = await _orderRepository.updateWorkOrderStatus(
+        workOrderId: workOrderId,
+        status: status,
+        notes: notes,
+      );
+      await _refreshOperationalLists();
+      actionState = const ViewState.success(null);
+      notifyListeners();
+      return workOrder;
+    } on AppException catch (error) {
+      actionState = ViewState.error(error.message);
+    } catch (error) {
+      actionState = const ViewState.error('تعذر تحديث أمر العمل');
+    }
+
+    notifyListeners();
+    return null;
+  }
+
+  Future<List<DepartmentWorkOrder>> getDepartmentWorkOrders({
+    String? orderId,
+    String? departmentId,
+  }) {
+    return _orderRepository.getDepartmentWorkOrders(
+      orderId: orderId,
+      departmentId: departmentId,
+    );
+  }
+
   Future<Order?> collectRemainingPayment({
     required String orderId,
     required num amount,
@@ -611,6 +654,54 @@ class AppController extends ChangeNotifier {
       currentUser,
       branchId: branchId,
     );
+  }
+
+  Future<List<DeliveryBatch>?> createDeliveryBatches({String? branchId}) async {
+    actionState = const ViewState.loading();
+    notifyListeners();
+
+    try {
+      final batches = await _orderRepository.createDeliveryBatches(
+        branchId: branchId,
+      );
+      deliveryBatches = await _orderRepository.getDeliveryBatches();
+      actionState = const ViewState.success(null);
+      notifyListeners();
+      return batches;
+    } on AppException catch (error) {
+      actionState = ViewState.error(error.message);
+    } catch (error) {
+      actionState = const ViewState.error('تعذر إنشاء دفعات التوصيل');
+    }
+
+    notifyListeners();
+    return null;
+  }
+
+  Future<DeliveryBatch?> assignDeliveryBatch({
+    required String batchId,
+    required String driverId,
+  }) async {
+    actionState = const ViewState.loading();
+    notifyListeners();
+
+    try {
+      final batch = await _orderRepository.assignDeliveryBatch(
+        batchId: batchId,
+        driverId: driverId,
+      );
+      deliveryBatches = await _orderRepository.getDeliveryBatches();
+      actionState = const ViewState.success(null);
+      notifyListeners();
+      return batch;
+    } on AppException catch (error) {
+      actionState = ViewState.error(error.message);
+    } catch (error) {
+      actionState = const ViewState.error('تعذر إسناد دفعة التوصيل');
+    }
+
+    notifyListeners();
+    return null;
   }
 
   Future<Order?> assignDriverToOrder({
@@ -1110,6 +1201,12 @@ class AppController extends ChangeNotifier {
         ? await _retainOnRefreshError(
             distributionOrders,
             () => _orderRepository.getDistributionOrders(currentUser),
+          )
+        : [];
+    deliveryBatches = AccessControl.canViewDistribution(currentUser)
+        ? await _retainOnRefreshError(
+            deliveryBatches,
+            () => _orderRepository.getDeliveryBatches(),
           )
         : [];
     productionOrders = AccessControl.canViewProductionOrders(currentUser)

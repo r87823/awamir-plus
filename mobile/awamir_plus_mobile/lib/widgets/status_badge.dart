@@ -66,6 +66,8 @@ class StatusBadge extends StatelessWidget {
         return (const Color(0xFFF3E5F5), const Color(0xFF7B1FA2));
       case OrderStatus.rejected:
         return (const Color(0xFFFFEBEE), AppColors.red);
+      case OrderStatus.cancelled:
+        return (const Color(0xFFECEFF1), const Color(0xFF607D8B));
     }
   }
 }

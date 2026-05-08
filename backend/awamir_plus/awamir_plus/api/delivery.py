@@ -13,30 +13,53 @@ from awamir_plus.constants import (
     ORDER_STATUS_READY_FOR_PICKUP,
     PAYMENT_STATUS_IN_DAILY_CLOSURE,
     PAYMENT_STATUS_RECORDED,
+    PERMISSION_DELIVERY_BATCH_ASSIGN_DRIVER,
+    PERMISSION_DELIVERY_BATCH_CREATE,
+    PERMISSION_DELIVERY_BATCH_VIEW,
+    PERMISSION_DELIVERY_BATCH_VIEW_ASSIGNED,
+    PERMISSION_DELIVERY_COLLECT_CASH,
+    PERMISSION_DELIVERY_CONFIRM_DELIVERED,
+    PERMISSION_DELIVERY_UPDATE_STATUS,
+    PERMISSION_DELIVERY_VIEW_ASSIGNED,
+    PERMISSION_ORDER_DELIVER_BRANCH,
+    PERMISSION_PAYMENT_COLLECT_BRANCH,
 )
-from awamir_plus.permissions import get_user_branch, is_awamir_admin, require_branch_scope, require_roles
-from awamir_plus.utils import assert_required, create_notification, get_awamir_settings, make_status_log, now, to_float
+from awamir_plus.permissions import get_user_branch, has_permission, is_awamir_admin, require_any_permissions, require_branch_scope, require_permissions
+from awamir_plus.services.delivery_batch import (
+    assign_batch_to_driver,
+    create_batches_for_ready_delivery_orders,
+    get_delivery_batches as get_delivery_batches_for_user,
+)
+from awamir_plus.utils import assert_required, create_notification, get_awamir_settings, get_pagination, make_audit_log, make_status_log, now, run_idempotent, to_float
 
 
 @frappe.whitelist()
-def get_pickup_orders():
-    require_roles(["Awamir Branch Employee", "Awamir Branch Supervisor", "Awamir System Admin"])
+def get_pickup_orders(limit_start=0, limit_page_length=None):
+    require_permissions(PERMISSION_ORDER_DELIVER_BRANCH)
     filters = {"status": ORDER_STATUS_READY_FOR_PICKUP}
     if not is_awamir_admin():
         filters["pickup_branch"] = get_user_branch()
-    orders = frappe.get_all("Awamir Order Request", filters=filters, pluck="name", order_by="required_date asc")
+    orders = frappe.get_all(
+        "Awamir Order Request",
+        filters=filters,
+        pluck="name",
+        order_by="required_date asc",
+        **get_pagination(limit_start, limit_page_length),
+    )
     return [_order_detail(order) for order in orders]
 
 
 @frappe.whitelist()
 def mark_pickup_order_delivered(order=None, order_id=None):
-    require_roles(["Awamir Branch Employee", "Awamir Branch Supervisor", "Awamir System Admin"])
+    require_permissions(PERMISSION_ORDER_DELIVER_BRANCH)
     order = order or order_id
     assert_required(order, "Order is required.")
     doc = frappe.get_doc("Awamir Order Request", order)
     require_branch_scope(doc.pickup_branch)
     if doc.status == ORDER_STATUS_DELIVERED:
-        return _order_response(doc, _("Order is already delivered."))
+        response = _order_response(doc, _("Order is already delivered."))
+        make_audit_log("pickup_delivery_skipped", status="skipped", reference_doctype="Awamir Order Request", reference_name=doc.name, method="mark_pickup_order_delivered", response=response)
+        return response
     if doc.status != ORDER_STATUS_READY_FOR_PICKUP:
         frappe.throw(_("Only Ready For Pickup orders can be delivered from branch."))
     doc.save(ignore_permissions=True)
@@ -54,7 +77,9 @@ def mark_pickup_order_delivered(order=None, order_id=None):
         doc.name,
         "order_delivered",
     )
-    return _order_response(doc, _("Order delivered successfully."))
+    response = _order_response(doc, _("Order delivered successfully."))
+    make_audit_log("pickup_order_delivered", reference_doctype="Awamir Order Request", reference_name=doc.name, method="mark_pickup_order_delivered", response=response)
+    return response
 
 
 @frappe.whitelist()
@@ -66,7 +91,7 @@ def collect_remaining_payment(
     receipt_attachment=None,
     order_id=None,
 ):
-    require_roles(["Awamir Branch Employee", "Awamir Branch Supervisor", "Awamir Driver", "Awamir System Admin"])
+    require_any_permissions([PERMISSION_PAYMENT_COLLECT_BRANCH, PERMISSION_DELIVERY_COLLECT_CASH])
     order = order or order_id
     assert_required(order, "Order is required.")
     doc = frappe.get_doc("Awamir Order Request", order)
@@ -79,7 +104,11 @@ def collect_remaining_payment(
     if amount > to_float(doc.remaining_amount):
         frappe.throw(_("Payment amount cannot exceed remaining amount."))
 
-    receiver_role = "driver" if "Awamir Driver" in frappe.get_roles() and not is_awamir_admin() else "branch_employee"
+    receiver_role = (
+        "driver"
+        if has_permission(PERMISSION_DELIVERY_COLLECT_CASH) and not is_awamir_admin()
+        else "branch_employee"
+    )
     cash_closure = _get_or_create_open_cash_closure(frappe.session.user, receiver_role)
     payment = frappe.get_doc(
         {
@@ -109,12 +138,14 @@ def collect_remaining_payment(
         doc.name,
         "payment_collected",
     )
-    return _payment_response(payment, doc, _("Payment collected successfully."))
+    response = _payment_response(payment, doc, _("Payment collected successfully."))
+    make_audit_log("remaining_payment_collected", reference_doctype="Awamir Order Request", reference_name=doc.name, method="collect_remaining_payment", payload={"amount": amount, "payment_method": payment_method, "payment_reference": payment_reference}, response=response)
+    return response
 
 
 @frappe.whitelist()
 def get_available_drivers(branch_id=None):
-    require_roles(["Awamir Distribution Manager", "Awamir System Admin"])
+    require_permissions(PERMISSION_DELIVERY_BATCH_ASSIGN_DRIVER)
     drivers = []
     for row in frappe.get_all("Has Role", filters={"role": "Awamir Driver"}, fields=["parent"]):
         user = frappe.get_doc("User", row.parent)
@@ -145,8 +176,62 @@ def get_available_drivers(branch_id=None):
 
 
 @frappe.whitelist()
+def create_delivery_batches(branch_id=None, idempotency_key=None):
+    require_permissions(PERMISSION_DELIVERY_BATCH_CREATE)
+    payload = {"branch_id": branch_id}
+
+    def _execute():
+        branch = branch_id
+        if not is_awamir_admin():
+            branch = branch or get_user_branch()
+        return {
+            "batches": create_batches_for_ready_delivery_orders(branch=branch),
+            "message": _("Delivery batches are ready."),
+        }
+
+    return run_idempotent("create_delivery_batches", payload, _execute, idempotency_key=idempotency_key)
+
+
+@frappe.whitelist()
+def get_delivery_batches(status=None, destination_branch=None):
+    require_any_permissions([PERMISSION_DELIVERY_BATCH_VIEW, PERMISSION_DELIVERY_BATCH_VIEW_ASSIGNED])
+    statuses = [status] if status else None
+    driver = None
+    if not is_awamir_admin() and has_permission(PERMISSION_DELIVERY_BATCH_VIEW_ASSIGNED):
+        driver = frappe.session.user
+    if not is_awamir_admin() and has_permission(PERMISSION_DELIVERY_BATCH_VIEW):
+        destination_branch = destination_branch or get_user_branch()
+    return get_delivery_batches_for_user(
+        statuses=statuses,
+        driver=driver,
+        destination_branch=destination_branch,
+    )
+
+
+@frappe.whitelist()
+def assign_delivery_batch(batch=None, driver=None, batch_id=None, driver_id=None, idempotency_key=None):
+    require_permissions(PERMISSION_DELIVERY_BATCH_ASSIGN_DRIVER)
+    batch = batch or batch_id
+    driver = driver or driver_id
+    assert_required(batch, "Delivery batch is required.")
+    assert_required(driver, "Driver is required.")
+    payload = {"batch": batch, "driver": driver}
+
+    def _execute():
+        doc = assign_batch_to_driver(batch, driver)
+        response = {
+            "batch": doc.as_dict(),
+            "message": _("Delivery batch assigned successfully."),
+        }
+        make_audit_log("delivery_batch_assigned", reference_doctype="Awamir Delivery Batch", reference_name=doc.name, method="assign_delivery_batch", payload={"driver": driver}, response=response)
+        return response
+
+    return run_idempotent("assign_delivery_batch", payload, _execute, idempotency_key=idempotency_key, reference_doctype="Awamir Delivery Batch", reference_name=batch)
+
+
+@frappe.whitelist()
 def assign_driver_to_order(order=None, driver=None, order_id=None, driver_id=None):
-    require_roles(["Awamir Distribution Manager", "Awamir System Admin"])
+    require_permissions(PERMISSION_DELIVERY_BATCH_ASSIGN_DRIVER)
     order = order or order_id
     driver = driver or driver_id
     assert_required(order, "Order is required.")
@@ -157,7 +242,9 @@ def assign_driver_to_order(order=None, driver=None, order_id=None, driver_id=Non
     if not is_awamir_admin() and get_user_branch() and doc.created_branch != get_user_branch():
         frappe.throw(_("You can only assign drivers for orders in your branch."), frappe.PermissionError)
     if doc.status == ORDER_STATUS_ASSIGNED_TO_DRIVER and doc.assigned_driver == driver:
-        return _order_response(doc, _("Order is already assigned to this driver."))
+        response = _order_response(doc, _("Order is already assigned to this driver."))
+        make_audit_log("driver_assignment_skipped", status="skipped", reference_doctype="Awamir Order Request", reference_name=doc.name, method="assign_driver_to_order", payload={"driver": driver}, response=response)
+        return response
     if doc.status != ORDER_STATUS_READY_FOR_DELIVERY:
         frappe.throw(_("Only Ready For Delivery orders can be assigned to a driver."))
     existing_assignment = frappe.db.get_value(
@@ -169,7 +256,9 @@ def assign_driver_to_order(order=None, driver=None, order_id=None, driver_id=Non
         doc.assigned_driver = driver
         doc.status = ORDER_STATUS_ASSIGNED_TO_DRIVER
         doc.save(ignore_permissions=True)
-        return _order_response(doc, _("Order is already assigned to this driver."))
+        response = _order_response(doc, _("Order is already assigned to this driver."))
+        make_audit_log("driver_assignment_skipped", status="skipped", reference_doctype="Awamir Order Request", reference_name=doc.name, method="assign_driver_to_order", payload={"driver": driver}, response=response)
+        return response
     old_status = doc.status
     doc.status = ORDER_STATUS_ASSIGNED_TO_DRIVER
     doc.assigned_driver = driver
@@ -200,33 +289,39 @@ def assign_driver_to_order(order=None, driver=None, order_id=None, driver_id=Non
         doc.name,
         "driver_assigned",
     )
-    return _order_response(doc, _("Order assigned to driver successfully."))
+    response = _order_response(doc, _("Order assigned to driver successfully."))
+    make_audit_log("driver_assigned", reference_doctype="Awamir Order Request", reference_name=doc.name, method="assign_driver_to_order", payload={"driver": driver}, response=response)
+    return response
 
 
 @frappe.whitelist()
-def get_driver_orders():
-    require_roles(["Awamir Driver", "Awamir System Admin"])
+def get_driver_orders(status=None, limit_start=0, limit_page_length=None):
+    require_permissions(PERMISSION_DELIVERY_VIEW_ASSIGNED)
+    allowed_statuses = [
+        ORDER_STATUS_ASSIGNED_TO_DRIVER,
+        ORDER_STATUS_DRIVER_PICKED_UP,
+        ORDER_STATUS_OUT_FOR_DELIVERY,
+        ORDER_STATUS_DELIVERY_FAILED,
+        ORDER_STATUS_DELIVERED,
+    ]
     filters = {
-        "status": [
-            "in",
-            [
-                ORDER_STATUS_ASSIGNED_TO_DRIVER,
-                ORDER_STATUS_DRIVER_PICKED_UP,
-                ORDER_STATUS_OUT_FOR_DELIVERY,
-                ORDER_STATUS_DELIVERY_FAILED,
-                ORDER_STATUS_DELIVERED,
-            ],
-        ]
+        "status": status if status in allowed_statuses else ["in", allowed_statuses]
     }
     if not is_awamir_admin():
         filters["assigned_driver"] = frappe.session.user
-    orders = frappe.get_all("Awamir Order Request", filters=filters, pluck="name", order_by="required_date asc")
+    orders = frappe.get_all(
+        "Awamir Order Request",
+        filters=filters,
+        pluck="name",
+        order_by="required_date asc",
+        **get_pagination(limit_start, limit_page_length),
+    )
     return [_order_detail(order) for order in orders]
 
 
 @frappe.whitelist()
 def update_delivery_status(order=None, new_status=None, proof_image=None, driver_notes=None, status=None, order_id=None):
-    require_roles(["Awamir Driver", "Awamir System Admin"])
+    require_any_permissions([PERMISSION_DELIVERY_UPDATE_STATUS, PERMISSION_DELIVERY_CONFIRM_DELIVERED])
     order = order or order_id
     new_status = new_status or status
     assert_required(order, "Order is required.")
@@ -254,12 +349,14 @@ def update_delivery_status(order=None, new_status=None, proof_image=None, driver
     _update_assignment(doc, new_status, proof_image=proof_image, driver_notes=driver_notes)
     make_status_log(doc.name, old_status, new_status, driver_notes)
     _create_delivery_notifications(doc, new_status)
-    return _order_response(doc, _("Delivery status updated successfully."))
+    response = _order_response(doc, _("Delivery status updated successfully."))
+    make_audit_log("delivery_status_updated", reference_doctype="Awamir Order Request", reference_name=doc.name, method="update_delivery_status", payload={"new_status": new_status, "driver_notes": driver_notes}, response=response)
+    return response
 
 
 @frappe.whitelist()
 def mark_delivery_failed(order=None, reason=None, failure_reason=None, order_id=None):
-    require_roles(["Awamir Driver", "Awamir System Admin"])
+    require_permissions(PERMISSION_DELIVERY_UPDATE_STATUS)
     order = order or order_id
     reason = (reason or failure_reason or "").strip()
     assert_required(order, "Order is required.")
@@ -277,12 +374,14 @@ def mark_delivery_failed(order=None, reason=None, failure_reason=None, order_id=
     _update_assignment(doc, ORDER_STATUS_DELIVERY_FAILED, failure_reason=reason)
     make_status_log(doc.name, old_status, doc.status, reason)
     _create_delivery_notifications(doc, ORDER_STATUS_DELIVERY_FAILED, failure_reason=reason)
-    return _order_response(doc, _("Delivery failure recorded successfully."))
+    response = _order_response(doc, _("Delivery failure recorded successfully."))
+    make_audit_log("delivery_failed", reference_doctype="Awamir Order Request", reference_name=doc.name, method="mark_delivery_failed", payload={"reason": reason}, response=response)
+    return response
 
 
 @frappe.whitelist()
 def collect_delivery_payment(order=None, amount=0, payment_method="Cash", payment_reference=None, receipt_attachment=None, order_id=None):
-    require_roles(["Awamir Driver", "Awamir System Admin"])
+    require_permissions(PERMISSION_DELIVERY_COLLECT_CASH)
     return collect_remaining_payment(
         order=order or order_id,
         amount=amount,
@@ -316,8 +415,7 @@ def _update_assignment(order_doc, status, proof_image=None, driver_notes=None, f
 def _ensure_payment_scope(doc):
     if is_awamir_admin():
         return
-    roles = frappe.get_roles()
-    if "Awamir Driver" in roles:
+    if has_permission(PERMISSION_DELIVERY_COLLECT_CASH):
         if doc.assigned_driver != frappe.session.user:
             frappe.throw(_("You can only collect payment for your assigned delivery orders."), frappe.PermissionError)
         return

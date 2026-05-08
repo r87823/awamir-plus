@@ -35,5 +35,15 @@
     "insert_after": "is_group",
     "label": "Is Awamir Plus Category",
     "name": "Item Group-custom_is_awamir_category"
+  },
+  {
+    "description": "Stable branch code used by Awamir Plus operations.",
+    "doctype": "Custom Field",
+    "dt": "Branch",
+    "fieldname": "custom_awamir_branch_code",
+    "fieldtype": "Data",
+    "insert_after": "branch",
+    "label": "Awamir Branch Code",
+    "name": "Branch-custom_awamir_branch_code"
   }
 ]

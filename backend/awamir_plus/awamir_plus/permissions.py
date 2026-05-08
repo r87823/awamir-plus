@@ -2,6 +2,26 @@ import frappe
 from frappe import _
 
 from awamir_plus.constants import (
+    PERMISSION_ACCOUNTING_VIEW_FINANCIALS,
+    PERMISSION_CASHBOX_APPROVE,
+    PERMISSION_CASHBOX_REVIEW,
+    PERMISSION_CASHBOX_VIEW_ALL,
+    PERMISSION_CASHBOX_VIEW_OWN,
+    PERMISSION_DELIVERY_BATCH_ASSIGN_DRIVER,
+    PERMISSION_DELIVERY_COLLECT_CASH,
+    PERMISSION_DELIVERY_CONFIRM_DELIVERED,
+    PERMISSION_DELIVERY_UPDATE_STATUS,
+    PERMISSION_DELIVERY_VIEW_ASSIGNED,
+    PERMISSION_FULFILLMENT_ASSIGN_DEPARTMENT,
+    PERMISSION_FULFILLMENT_VIEW_QUEUE,
+    PERMISSION_ORDER_APPROVE,
+    PERMISSION_ORDER_CREATE,
+    PERMISSION_ORDER_DELIVER_BRANCH,
+    PERMISSION_ORDER_VIEW_BRANCH,
+    PERMISSION_PRODUCTION_MARK_READY,
+    PERMISSION_SYSTEM_FULL_ACCESS,
+    PERMISSION_WORK_ORDER_UPDATE_STATUS,
+    PERMISSION_WORK_ORDER_VIEW_DEPARTMENT,
     ROLE_ACCOUNTANT,
     ROLE_BRANCH_EMPLOYEE,
     ROLE_BRANCH_SUPERVISOR,
@@ -10,6 +30,7 @@ from awamir_plus.constants import (
     ROLE_DRIVER,
     ROLE_PRODUCTION_USER,
     ROLE_SYSTEM_ADMIN,
+    ROLE_PERMISSION_MAPPING,
 )
 
 
@@ -39,68 +60,108 @@ def require_roles(allowed_roles):
         frappe.throw(_("You are not allowed to perform this Awamir Plus action."), frappe.PermissionError)
 
 
+def get_user_permissions(user=None):
+    permissions = set()
+    for role in get_user_roles(user):
+        permissions.update(ROLE_PERMISSION_MAPPING.get(role, set()))
+    if is_awamir_admin(user):
+        permissions.add(PERMISSION_SYSTEM_FULL_ACCESS)
+        for role_permissions in ROLE_PERMISSION_MAPPING.values():
+            permissions.update(role_permissions)
+    return permissions
+
+
+def has_permission(permission, user=None):
+    permissions = get_user_permissions(user)
+    return PERMISSION_SYSTEM_FULL_ACCESS in permissions or permission in permissions
+
+
+def has_any_permission(permissions, user=None):
+    return any(has_permission(permission, user=user) for permission in permissions)
+
+
+def has_all_permissions(permissions, user=None):
+    return all(has_permission(permission, user=user) for permission in permissions)
+
+
+def require_permissions(permissions):
+    require_login()
+    if isinstance(permissions, str):
+        permissions = [permissions]
+    if not has_all_permissions(permissions):
+        frappe.throw(_("You are not allowed to perform this Awamir Plus action."), frappe.PermissionError)
+
+
+def require_any_permissions(permissions):
+    require_login()
+    if isinstance(permissions, str):
+        permissions = [permissions]
+    if not has_any_permission(permissions):
+        frappe.throw(_("You are not allowed to perform this Awamir Plus action."), frappe.PermissionError)
+
+
 def can_create_order(user=None):
-    return has_any_role([ROLE_BRANCH_EMPLOYEE], user)
+    return has_permission(PERMISSION_ORDER_CREATE, user)
 
 
 def can_view_branch_orders(user=None):
-    return has_any_role([ROLE_BRANCH_EMPLOYEE, ROLE_BRANCH_SUPERVISOR], user)
+    return has_any_permission([PERMISSION_ORDER_VIEW_BRANCH, PERMISSION_ORDER_CREATE], user)
 
 
 def can_approve_orders(user=None):
-    return has_any_role([ROLE_BRANCH_SUPERVISOR], user)
+    return has_permission(PERMISSION_ORDER_APPROVE, user)
 
 
 def can_view_distribution(user=None):
-    return has_any_role([ROLE_DISTRIBUTION_MANAGER], user)
+    return has_permission(PERMISSION_FULFILLMENT_VIEW_QUEUE, user)
 
 
 def can_assign_production_department(user=None):
-    return has_any_role([ROLE_DISTRIBUTION_MANAGER], user)
+    return has_permission(PERMISSION_FULFILLMENT_ASSIGN_DEPARTMENT, user)
 
 
 def can_view_production_orders(user=None):
-    return has_any_role([ROLE_PRODUCTION_USER], user)
+    return has_permission(PERMISSION_WORK_ORDER_VIEW_DEPARTMENT, user)
 
 
 def can_update_production_status(user=None):
-    return has_any_role([ROLE_PRODUCTION_USER], user)
+    return has_any_permission([PERMISSION_WORK_ORDER_UPDATE_STATUS, PERMISSION_PRODUCTION_MARK_READY], user)
 
 
 def can_assign_driver(user=None):
-    return has_any_role([ROLE_DISTRIBUTION_MANAGER], user)
+    return has_permission(PERMISSION_DELIVERY_BATCH_ASSIGN_DRIVER, user)
 
 
 def can_view_driver_orders(user=None):
-    return has_any_role([ROLE_DRIVER], user)
+    return has_permission(PERMISSION_DELIVERY_VIEW_ASSIGNED, user)
 
 
 def can_update_delivery_status(user=None):
-    return has_any_role([ROLE_DRIVER], user)
+    return has_permission(PERMISSION_DELIVERY_UPDATE_STATUS, user)
 
 
 def can_collect_delivery_payment(user=None):
-    return has_any_role([ROLE_DRIVER], user)
+    return has_permission(PERMISSION_DELIVERY_COLLECT_CASH, user)
 
 
 def can_view_my_cash_closure(user=None):
-    return has_any_role([ROLE_BRANCH_EMPLOYEE, ROLE_DRIVER], user)
+    return has_permission(PERMISSION_CASHBOX_VIEW_OWN, user)
 
 
 def can_submit_cash_closure(user=None):
-    return has_any_role([ROLE_BRANCH_EMPLOYEE, ROLE_DRIVER], user)
+    return has_permission(PERMISSION_CASHBOX_VIEW_OWN, user)
 
 
 def can_view_cashier_closures(user=None):
-    return has_any_role([ROLE_CASHIER], user)
+    return has_permission(PERMISSION_CASHBOX_VIEW_ALL, user)
 
 
 def can_review_cash_closure(user=None):
-    return has_any_role([ROLE_CASHIER], user)
+    return has_permission(PERMISSION_CASHBOX_REVIEW, user)
 
 
 def can_manage_accounting(user=None):
-    return has_any_role([ROLE_ACCOUNTANT], user)
+    return has_permission(PERMISSION_ACCOUNTING_VIEW_FINANCIALS, user)
 
 
 def can_manage_settings(user=None):

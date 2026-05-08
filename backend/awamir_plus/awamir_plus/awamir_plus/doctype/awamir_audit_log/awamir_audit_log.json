@@ -1,0 +1,42 @@
+{
+  "doctype": "DocType",
+  "name": "Awamir Audit Log",
+  "module": "Awamir Plus",
+  "custom": 0,
+  "allow_rename": 0,
+  "track_changes": 0,
+  "sort_field": "created_at",
+  "sort_order": "DESC",
+  "field_order": [
+    "event_type",
+    "status",
+    "user",
+    "reference_doctype",
+    "reference_name",
+    "method",
+    "idempotency_key",
+    "request_hash",
+    "created_at",
+    "payload",
+    "response",
+    "error"
+  ],
+  "fields": [
+    {"fieldname": "event_type", "label": "Event Type", "fieldtype": "Data", "reqd": 1, "in_list_view": 1},
+    {"fieldname": "status", "label": "Status", "fieldtype": "Select", "options": "success\nfailed\nskipped", "default": "success", "reqd": 1, "in_list_view": 1},
+    {"fieldname": "user", "label": "User", "fieldtype": "Link", "options": "User", "in_list_view": 1},
+    {"fieldname": "reference_doctype", "label": "Reference Doctype", "fieldtype": "Data", "in_list_view": 1},
+    {"fieldname": "reference_name", "label": "Reference Name", "fieldtype": "Data", "in_list_view": 1},
+    {"fieldname": "method", "label": "Method", "fieldtype": "Data"},
+    {"fieldname": "idempotency_key", "label": "Idempotency Key", "fieldtype": "Data"},
+    {"fieldname": "request_hash", "label": "Request Hash", "fieldtype": "Data"},
+    {"fieldname": "created_at", "label": "Created At", "fieldtype": "Datetime", "reqd": 1, "in_list_view": 1},
+    {"fieldname": "payload", "label": "Payload", "fieldtype": "Code", "options": "JSON"},
+    {"fieldname": "response", "label": "Response", "fieldtype": "Code", "options": "JSON"},
+    {"fieldname": "error", "label": "Error", "fieldtype": "Small Text"}
+  ],
+  "permissions": [
+    {"role": "Awamir System Admin", "read": 1, "write": 1, "create": 1, "delete": 1, "permlevel": 0}
+  ]
+}
+

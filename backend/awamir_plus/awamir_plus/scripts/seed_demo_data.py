@@ -10,13 +10,22 @@ from awamir_plus.install import create_custom_fields, create_default_settings, c
 from awamir_plus.utils import extract_coordinates_from_google_maps_url
 
 
-DEMO_BRANCHES = ["فرع المروج", "فرع الشرائع", "فرع العزيزية"]
+DEMO_BRANCHES = [
+    {"name": "فرع الشرايع", "code": "sharayea"},
+    {"name": "فرع الخضراء", "code": "khadra"},
+    {"name": "فرع العوالي", "code": "awali"},
+    {"name": "فرع الستين", "code": "sitteen"},
+    {"name": "فرع النوارية", "code": "nawaria"},
+]
 
 DEMO_DEPARTMENTS = [
-    {"name": "مصنع الحلويات", "code": "SWEETS_FACTORY", "branch": "فرع المروج"},
-    {"name": "المطبخ", "code": "KITCHEN", "branch": "فرع الشرائع"},
-    {"name": "قسم البوفيه", "code": "BUFFET", "branch": "فرع العزيزية"},
-    {"name": "قسم الطلبات الخاصة", "code": "SPECIAL_ORDERS", "branch": "فرع المروج"},
+    {"name": "قسم التورت", "code": "cake_department", "center": "المصنع", "branch": "فرع الشرايع", "daily_capacity": 30},
+    {"name": "قسم المعجنات", "code": "pastry_department", "center": "المصنع", "branch": "فرع الشرايع", "daily_capacity": 80},
+    {"name": "قسم الشرقي", "code": "oriental_sweets_department", "center": "المصنع", "branch": "فرع الشرايع", "daily_capacity": 60},
+    {"name": "قسم البيتي فور", "code": "petit_four_department", "center": "المصنع", "branch": "فرع الشرايع", "daily_capacity": 50},
+    {"name": "قسم الذبايح", "code": "slaughter_department", "center": "المطبخ", "branch": "فرع العوالي", "daily_capacity": 12},
+    {"name": "قسم السلطة", "code": "salad_department", "center": "المطبخ", "branch": "فرع العوالي", "daily_capacity": 120},
+    {"name": "قسم البوفيه", "code": "buffet_department", "center": "المطبخ", "branch": "فرع العوالي", "daily_capacity": 20},
 ]
 
 DEMO_ITEM_GROUPS = ["طلبات خاصة", "طلبات البوفيه", "الحلويات", "المطبخ", "الضيافة"]
@@ -40,11 +49,29 @@ DEMO_PRODUCTS = [
 ]
 
 DEPARTMENT_MAPPING = {
-    "الحلويات": "مصنع الحلويات",
+    "الحلويات": "قسم الشرقي",
     "طلبات البوفيه": "قسم البوفيه",
-    "المطبخ": "المطبخ",
-    "طلبات خاصة": "قسم الطلبات الخاصة",
-    "الضيافة": "قسم الطلبات الخاصة",
+    "المطبخ": "قسم المعجنات",
+    "طلبات خاصة": "قسم التورت",
+    "الضيافة": "قسم البيتي فور",
+}
+
+ITEM_DEPARTMENT_MAPPING = {
+    "AWAMIR-CUSTOM-CAKE": "قسم التورت",
+    "AWAMIR-VIP-GIFT-BOX": "قسم البيتي فور",
+    "AWAMIR-SPECIAL-DESSERT": "قسم الشرقي",
+    "AWAMIR-BUFFET-20": "قسم البوفيه",
+    "AWAMIR-BUFFET-50": "قسم البوفيه",
+    "AWAMIR-MINI-BUFFET": "قسم البوفيه",
+    "AWAMIR-KUNAFA": "قسم الشرقي",
+    "AWAMIR-CHOCOLATE-TRAY": "قسم البيتي فور",
+    "AWAMIR-MAMOUL-BOX": "قسم البيتي فور",
+    "AWAMIR-MIX-PASTRIES": "قسم المعجنات",
+    "AWAMIR-MINI-SANDWICH": "قسم المعجنات",
+    "AWAMIR-HOT-APPETIZERS": "قسم السلطة",
+    "AWAMIR-COFFEE-DATES": "قسم البيتي فور",
+    "AWAMIR-HOSPITALITY-SET": "قسم البيتي فور",
+    "AWAMIR-ARABIC-COFFEE-THERMOS": "قسم البيتي فور",
 }
 
 DEMO_USERS = [
@@ -52,81 +79,81 @@ DEMO_USERS = [
         "email": "employee@awamir.plus",
         "full_name": "موظف فرع أوامر",
         "role": "Awamir Branch Employee",
-        "branch": "فرع المروج",
+        "branch": "فرع الشرايع",
         "phone": "0501000001",
     },
     {
         "email": "supervisor@awamir.plus",
         "full_name": "مشرف فرع أوامر",
         "role": "Awamir Branch Supervisor",
-        "branch": "فرع المروج",
+        "branch": "فرع الشرايع",
         "phone": "0501000002",
     },
     {
         "email": "distribution@awamir.plus",
         "full_name": "مسؤول توزيع أوامر",
         "role": "Awamir Distribution Manager",
-        "branch": "فرع المروج",
+        "branch": "فرع الشرايع",
         "phone": "0501000003",
     },
     {
         "email": "production@awamir.plus",
-        "full_name": "موظف مصنع الحلويات",
+        "full_name": "موظف قسم التورت",
         "role": "Awamir Production User",
-        "branch": "فرع المروج",
-        "production_department": "مصنع الحلويات",
+        "branch": "فرع الشرايع",
+        "production_department": "قسم التورت",
         "phone": "0501000004",
     },
     {
         "email": "production.kitchen@awamir.plus",
-        "full_name": "موظف إنتاج المطبخ",
+        "full_name": "موظف قسم المعجنات",
         "role": "Awamir Production User",
-        "branch": "فرع الشرائع",
-        "production_department": "المطبخ",
+        "branch": "فرع الشرايع",
+        "production_department": "قسم المعجنات",
         "phone": "0501000005",
     },
     {
         "email": "production.buffet@awamir.plus",
         "full_name": "موظف إنتاج البوفيه",
         "role": "Awamir Production User",
-        "branch": "فرع العزيزية",
+        "branch": "فرع العوالي",
         "production_department": "قسم البوفيه",
         "phone": "0501000006",
     },
     {
         "email": "production.special@awamir.plus",
-        "full_name": "موظف الطلبات الخاصة",
+        "full_name": "موظف قسم الشرقي",
         "role": "Awamir Production User",
-        "branch": "فرع المروج",
-        "production_department": "قسم الطلبات الخاصة",
+        "branch": "فرع الشرايع",
+        "production_department": "قسم الشرقي",
         "phone": "0501000007",
     },
     {
         "email": "driver@awamir.plus",
         "full_name": "سائق أوامر",
         "role": "Awamir Driver",
-        "branch": "فرع المروج",
+        "branch": "فرع الشرايع",
         "phone": "0505000001",
     },
     {
         "email": "cashier@awamir.plus",
         "full_name": "أمين صندوق أوامر",
         "role": "Awamir Cashier",
-        "branch": "فرع المروج",
+        "branch": "فرع الشرايع",
         "phone": "0501000008",
     },
     {
         "email": "accountant@awamir.plus",
         "full_name": "محاسب أوامر",
         "role": "Awamir Accountant",
-        "branch": "فرع المروج",
+        "branch": "فرع الشرايع",
         "phone": "0501000009",
     },
     {
         "email": "admin@awamir.plus",
         "full_name": "مدير نظام أوامر",
         "role": "Awamir System Admin",
-        "branch": "فرع المروج",
+        "branch": "فرع الشرايع",
         "phone": "0501000010",
     },
 ]
@@ -263,18 +290,28 @@ def _doctype_has_field(doctype, fieldname):
 
 def _ensure_branches(defaults, summary):
     has_company = _doctype_has_field("Branch", "company")
-    for branch in DEMO_BRANCHES:
+    has_awamir_code = _doctype_has_field("Branch", "custom_awamir_branch_code")
+    for branch_row in DEMO_BRANCHES:
+        branch = branch_row["name"] if isinstance(branch_row, dict) else branch_row
+        code = branch_row.get("code") if isinstance(branch_row, dict) else None
         if frappe.db.exists("Branch", branch):
+            if code and has_awamir_code and frappe.db.get_value("Branch", branch, "custom_awamir_branch_code") != code:
+                frappe.db.set_value("Branch", branch, "custom_awamir_branch_code", code)
+                _bump(summary, "updated", "Branch Awamir Code")
             _bump(summary, "existing", "Branch")
             continue
         doc = {"doctype": "Branch", "branch": branch}
         if has_company and defaults.get("company"):
             doc["company"] = defaults["company"]
+        if code and has_awamir_code:
+            doc["custom_awamir_branch_code"] = code
         frappe.get_doc(doc).insert(ignore_permissions=True)
         _bump(summary, "created", "Branch")
 
 
 def _ensure_production_departments(summary):
+    has_center = _doctype_has_field("Awamir Production Department", "production_center")
+    has_capacity = _doctype_has_field("Awamir Production Department", "daily_capacity")
     for department in DEMO_DEPARTMENTS:
         existing = frappe.db.get_value(
             "Awamir Production Department",
@@ -282,17 +319,29 @@ def _ensure_production_departments(summary):
             "name",
         )
         if existing:
+            updates = {}
+            if has_center and frappe.db.get_value("Awamir Production Department", existing, "production_center") != department.get("center"):
+                updates["production_center"] = department.get("center")
+            if has_capacity and frappe.db.get_value("Awamir Production Department", existing, "daily_capacity") != department.get("daily_capacity", 0):
+                updates["daily_capacity"] = department.get("daily_capacity", 0)
+            if updates:
+                for field, value in updates.items():
+                    frappe.db.set_value("Awamir Production Department", existing, field, value)
+                _bump(summary, "updated", "Awamir Production Department")
             _bump(summary, "existing", "Awamir Production Department")
             continue
-        doc = frappe.get_doc(
-            {
-                "doctype": "Awamir Production Department",
-                "department_name": department["name"],
-                "department_code": department["code"],
-                "branch": department["branch"] if frappe.db.exists("Branch", department["branch"]) else None,
-                "is_active": 1,
-            }
-        ).insert(ignore_permissions=True)
+        doc = {
+            "doctype": "Awamir Production Department",
+            "department_name": department["name"],
+            "department_code": department["code"],
+            "branch": department["branch"] if frappe.db.exists("Branch", department["branch"]) else None,
+            "is_active": 1,
+        }
+        if has_center:
+            doc["production_center"] = department.get("center")
+        if has_capacity:
+            doc["daily_capacity"] = department.get("daily_capacity", 0)
+        frappe.get_doc(doc).insert(ignore_permissions=True)
         _bump(summary, "created", "Awamir Production Department")
 
 
@@ -415,7 +464,7 @@ def _ensure_department_mappings(summary):
         )
 
     for product in DEMO_PRODUCTS:
-        department = DEPARTMENT_MAPPING.get(product["group"])
+        department = ITEM_DEPARTMENT_MAPPING.get(product["code"]) or DEPARTMENT_MAPPING.get(product["group"])
         if not department:
             continue
         _ensure_mapping(
@@ -471,7 +520,7 @@ def _deactivate_duplicate_demo_mappings(summary):
     for item_group, department in DEPARTMENT_MAPPING.items():
         combinations.append((item_group, None, department))
     for product in DEMO_PRODUCTS:
-        department = DEPARTMENT_MAPPING.get(product["group"])
+        department = ITEM_DEPARTMENT_MAPPING.get(product["code"]) or DEPARTMENT_MAPPING.get(product["group"])
         if department:
             combinations.append((product["group"], product["code"], department))
 

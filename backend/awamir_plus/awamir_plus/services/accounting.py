@@ -24,7 +24,7 @@ from awamir_plus.constants import (
     PAYMENT_STATUS_POSTED_TO_ERP,
     PAYMENT_STATUS_READY_FOR_ERP,
 )
-from awamir_plus.utils import create_notification, get_awamir_settings, make_status_log, now
+from awamir_plus.utils import create_notification, get_awamir_settings, get_pagination, make_status_log, now
 
 
 BLOCKED_SALES_ORDER_STATUSES = {
@@ -430,7 +430,7 @@ def _allocation_rows(order, payments, invoice_total):
     return rows
 
 
-def get_orders_needing_sales_order():
+def get_orders_needing_sales_order(limit_start=0, limit_page_length=None):
     orders = frappe.get_all(
         "Awamir Order Request",
         filters={
@@ -439,16 +439,18 @@ def get_orders_needing_sales_order():
         },
         pluck="name",
         order_by="modified desc",
+        **get_pagination(limit_start, limit_page_length),
     )
     return [_serialize_order(order) for order in orders if frappe.db.count("Awamir Order Request Item", {"parent": order})]
 
 
-def get_payments_ready_for_erp_posting():
+def get_payments_ready_for_erp_posting(limit_start=0, limit_page_length=None):
     rows = frappe.get_all(
         "Awamir Order Payment",
         filters={"status": ["in", list(POSTABLE_PAYMENT_STATUSES)]},
         fields=["name", "cash_closure"],
         order_by="created_at asc",
+        **get_pagination(limit_start, limit_page_length),
     )
     payments = []
     for row in rows:
@@ -460,22 +462,29 @@ def get_payments_ready_for_erp_posting():
     return payments
 
 
-def get_orders_needing_sales_invoice():
+def get_orders_needing_sales_invoice(limit_start=0, limit_page_length=None):
     filters = {
         "erpnext_sales_order": ["not in", ("", None)],
         "erpnext_sales_invoice": ["in", ("", None)],
         "status": ["not in", list(BLOCKED_INVOICE_STATUSES)],
     }
-    orders = frappe.get_all("Awamir Order Request", filters=filters, pluck="name", order_by="modified desc")
+    orders = frappe.get_all(
+        "Awamir Order Request",
+        filters=filters,
+        pluck="name",
+        order_by="modified desc",
+        **get_pagination(limit_start, limit_page_length),
+    )
     return [_serialize_order(order) for order in orders if _invoice_status_is_allowed(frappe.get_doc("Awamir Order Request", order))]
 
 
-def get_invoices_needing_advance_allocation():
+def get_invoices_needing_advance_allocation(limit_start=0, limit_page_length=None):
     orders = frappe.get_all(
         "Awamir Order Request",
         filters={"erpnext_sales_invoice": ["not in", ("", None)]},
         pluck="name",
         order_by="modified desc",
+        **get_pagination(limit_start, limit_page_length),
     )
     result = []
     for order in orders:
@@ -484,12 +493,13 @@ def get_invoices_needing_advance_allocation():
     return result
 
 
-def get_accounting_sync_errors():
+def get_accounting_sync_errors(limit_start=0, limit_page_length=None):
     orders = frappe.get_all(
         "Awamir Order Request",
         filters={"erp_sync_status": ERP_SYNC_FAILED},
         pluck="name",
         order_by="modified desc",
+        **get_pagination(limit_start, limit_page_length),
     )
     return [_serialize_order(order) for order in orders]
 

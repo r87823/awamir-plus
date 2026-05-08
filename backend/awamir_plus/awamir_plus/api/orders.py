@@ -3,48 +3,140 @@ from frappe import _
 from frappe.utils import getdate, now_datetime
 
 from awamir_plus.constants import (
+    DEPARTMENT_WORK_ORDER_STATUS_CANCELLED,
+    ORDER_STATUS_CANCELLED,
+    ORDER_STATUS_DELIVERED,
     ORDER_STATUS_DRAFT,
     ORDER_STATUS_PENDING_APPROVAL,
     PAYMENT_STATUS_RECORDED,
+    PERMISSION_ACCOUNTING_VIEW_FINANCIALS,
+    PERMISSION_CASHBOX_VIEW_ALL,
+    PERMISSION_CASHBOX_VIEW_OWN,
+    PERMISSION_DELIVERY_VIEW_ALL,
+    PERMISSION_DELIVERY_VIEW_ASSIGNED,
+    PERMISSION_FULFILLMENT_VIEW_QUEUE,
+    PERMISSION_ORDER_CANCEL,
+    PERMISSION_ORDER_CREATE,
+    PERMISSION_ORDER_VIEW_BRANCH,
+    PERMISSION_ORDER_VIEW_OWN,
+    PERMISSION_WORK_ORDER_VIEW_DEPARTMENT,
     ROLE_BRANCH_SUPERVISOR,
 )
 from awamir_plus.permissions import (
     get_user_branch,
     get_user_production_department,
+    has_permission,
     is_awamir_admin,
+    require_any_permissions,
     require_branch_scope,
-    require_roles,
+    require_permissions,
 )
 from awamir_plus.utils import (
     assert_required,
     create_notification,
     extract_coordinates_from_google_maps_url,
+    get_idempotent_response,
+    get_pagination,
+    get_request_idempotency_key,
+    make_audit_log,
     make_status_log,
     parse_json,
+    run_idempotent,
+    save_idempotent_response,
     serialize_doc,
     to_float,
 )
 
 
 @frappe.whitelist()
-def create_order(order_data=None, **kwargs):
+def create_order(order_data=None, idempotency_key=None, **kwargs):
     data = _parse_order_data(order_data, kwargs)
+    key = get_request_idempotency_key(idempotency_key or data.get("idempotency_key"))
+    cached = get_idempotent_response(key, "create_order", payload=data)
+    if cached:
+        return cached
     status = ORDER_STATUS_PENDING_APPROVAL if _as_bool(data.get("submit_for_approval")) else ORDER_STATUS_DRAFT
-    return _save_order(data, status)
+    response = _save_order(data, status)
+    save_idempotent_response(
+        key,
+        "create_order",
+        payload=data,
+        response=response,
+        reference_doctype="Awamir Order Request",
+        reference_name=response.get("order_id"),
+    )
+    return response
 
 
 @frappe.whitelist()
-def save_order_as_draft(order_data=None, **kwargs):
-    return _save_order(_parse_order_data(order_data, kwargs), ORDER_STATUS_DRAFT)
+def save_order_as_draft(order_data=None, idempotency_key=None, **kwargs):
+    data = _parse_order_data(order_data, kwargs)
+
+    def _execute():
+        return _save_order(data, ORDER_STATUS_DRAFT)
+
+    return run_idempotent(
+        "save_order_as_draft",
+        data,
+        _execute,
+        idempotency_key=idempotency_key or data.get("idempotency_key"),
+    )
 
 
 @frappe.whitelist()
-def submit_order_for_approval(order_data=None, **kwargs):
-    return _save_order(_parse_order_data(order_data, kwargs), ORDER_STATUS_PENDING_APPROVAL)
+def submit_order_for_approval(order_data=None, idempotency_key=None, **kwargs):
+    data = _parse_order_data(order_data, kwargs)
+
+    def _execute():
+        return _save_order(data, ORDER_STATUS_PENDING_APPROVAL)
+
+    return run_idempotent(
+        "submit_order_for_approval",
+        data,
+        _execute,
+        idempotency_key=idempotency_key or data.get("idempotency_key"),
+    )
+
+
+@frappe.whitelist()
+def cancel_order(order=None, order_id=None, reason=None, idempotency_key=None):
+    require_permissions(PERMISSION_ORDER_CANCEL)
+    order = order or order_id
+    reason = (reason or "").strip()
+    assert_required(order, "Order is required.")
+    assert_required(reason, "Cancellation reason is required.")
+    payload = {"order": order, "reason": reason}
+
+    def _execute():
+        doc = frappe.get_doc("Awamir Order Request", order)
+        require_branch_scope(doc.created_branch)
+        if doc.status == ORDER_STATUS_CANCELLED:
+            response = {"order": get_order_detail(doc.name), "message": _("Order is already cancelled.")}
+            make_audit_log("order_cancel_skipped", status="skipped", reference_doctype="Awamir Order Request", reference_name=doc.name, method="cancel_order", payload=payload, response=response)
+            return response
+        if doc.status == ORDER_STATUS_DELIVERED:
+            frappe.throw(_("Delivered orders cannot be cancelled."))
+        old_status = doc.status
+        doc.status = ORDER_STATUS_CANCELLED
+        doc.save(ignore_permissions=True)
+        _cancel_related_work_orders(doc.name)
+        make_status_log(doc.name, old_status, doc.status, reason)
+        create_notification(
+            doc.created_by_user,
+            _("Order Cancelled"),
+            _("Order {0} was cancelled.").format(doc.order_number),
+            doc.name,
+            "order_cancelled",
+        )
+        response = {"order": get_order_detail(doc.name), "message": _("Order cancelled successfully.")}
+        make_audit_log("order_cancelled", reference_doctype="Awamir Order Request", reference_name=doc.name, method="cancel_order", payload=payload, response=response)
+        return response
+
+    return run_idempotent("cancel_order", payload, _execute, idempotency_key=idempotency_key, reference_doctype="Awamir Order Request", reference_name=order)
 
 
 def _save_order(order_data, status):
-    require_roles(["Awamir Branch Employee"])
+    require_permissions(PERMISSION_ORDER_CREATE)
     data = order_data if isinstance(order_data, dict) else parse_json(order_data, {})
     items = data.get("items") or []
     assert_required(items, "At least one item is required.")
@@ -132,7 +224,16 @@ def _save_order(order_data, status):
                 doc.name,
                 "order_submitted",
             )
-    return _order_response(doc)
+    response = _order_response(doc)
+    make_audit_log(
+        "order_created",
+        reference_doctype="Awamir Order Request",
+        reference_name=doc.name,
+        method="_save_order",
+        payload=data,
+        response=response,
+    )
+    return response
 
 
 def _parse_order_data(order_data, kwargs):
@@ -296,25 +397,69 @@ def _get_branch_supervisors():
     ]
 
 
+def _cancel_related_work_orders(order):
+    if not frappe.db.exists("DocType", "Awamir Department Work Order"):
+        return
+    for work_order in frappe.get_all(
+        "Awamir Department Work Order",
+        filters={"order": order, "status": ["!=", DEPARTMENT_WORK_ORDER_STATUS_CANCELLED]},
+        pluck="name",
+    ):
+        frappe.db.set_value(
+            "Awamir Department Work Order",
+            work_order,
+            {
+                "status": DEPARTMENT_WORK_ORDER_STATUS_CANCELLED,
+                "notes": _("Cancelled with order {0}.").format(order),
+            },
+        )
+
+
 @frappe.whitelist()
-def get_my_orders():
-    require_roles(["Awamir Branch Employee", "Awamir Branch Supervisor", "Awamir System Admin"])
+def get_my_orders(status=None, limit_start=0, limit_page_length=None):
+    require_any_permissions([PERMISSION_ORDER_VIEW_OWN, PERMISSION_ORDER_VIEW_BRANCH])
     filters = {}
+    if status:
+        filters["status"] = status
     if not is_awamir_admin():
         filters["created_branch"] = get_user_branch()
-        if "Awamir Branch Employee" in frappe.get_roles() and "Awamir Branch Supervisor" not in frappe.get_roles():
+        if has_permission(PERMISSION_ORDER_VIEW_OWN) and not has_permission(PERMISSION_ORDER_VIEW_BRANCH):
             filters["created_by_user"] = frappe.session.user
-    orders = frappe.get_all("Awamir Order Request", filters=filters, pluck="name", order_by="modified desc")
+    orders = frappe.get_all(
+        "Awamir Order Request",
+        filters=filters,
+        pluck="name",
+        order_by="modified desc",
+        **get_pagination(limit_start, limit_page_length),
+    )
     return [get_order_detail(order) for order in orders]
 
 
 @frappe.whitelist()
 def get_order_detail(order):
-    require_roles(["Awamir Branch Employee", "Awamir Branch Supervisor", "Awamir Distribution Manager", "Awamir Production User", "Awamir Driver", "Awamir Cashier", "Awamir Accountant", "Awamir System Admin"])
+    require_any_permissions(
+        [
+            PERMISSION_ORDER_VIEW_OWN,
+            PERMISSION_ORDER_VIEW_BRANCH,
+            PERMISSION_FULFILLMENT_VIEW_QUEUE,
+            PERMISSION_WORK_ORDER_VIEW_DEPARTMENT,
+            PERMISSION_DELIVERY_VIEW_ALL,
+            PERMISSION_DELIVERY_VIEW_ASSIGNED,
+            PERMISSION_CASHBOX_VIEW_OWN,
+            PERMISSION_CASHBOX_VIEW_ALL,
+            PERMISSION_ACCOUNTING_VIEW_FINANCIALS,
+        ]
+    )
     doc = frappe.get_doc("Awamir Order Request", order)
-    roles = frappe.get_roles()
-    production_scope = "Awamir Production User" in roles and doc.production_department == get_user_production_department()
-    if not is_awamir_admin() and "Awamir Driver" not in roles and not production_scope:
+    production_scope = (
+        has_permission(PERMISSION_WORK_ORDER_VIEW_DEPARTMENT)
+        and doc.production_department == get_user_production_department()
+    )
+    driver_scope = (
+        has_permission(PERMISSION_DELIVERY_VIEW_ASSIGNED)
+        and doc.assigned_driver == frappe.session.user
+    )
+    if not is_awamir_admin() and not driver_scope and not production_scope:
         require_branch_scope(doc.created_branch)
     data = doc.as_dict()
     if doc.production_department:
@@ -334,11 +479,34 @@ def get_order_detail(order):
         data["assigned_driver_phone"] = _user_phone(driver)
     data["status_logs"] = frappe.get_all("Awamir Order Status Log", filters={"order": doc.name}, fields=["*"], order_by="changed_at asc")
     data["payments"] = frappe.get_all("Awamir Order Payment", filters={"order": doc.name}, fields=["*"], order_by="created_at asc")
+    if frappe.db.exists("DocType", "Awamir Department Work Order"):
+        data["department_work_orders"] = frappe.get_all(
+            "Awamir Department Work Order",
+            filters={"order": doc.name},
+            fields=["*"],
+            order_by="creation asc",
+        )
+    else:
+        data["department_work_orders"] = []
     data["delivery_assignment"] = frappe.get_all("Awamir Delivery Assignment", filters={"order": doc.name}, fields=["*"], limit=1)
     for assignment in data["delivery_assignment"]:
         driver = frappe.get_doc("User", assignment.driver)
         assignment["driver_name"] = driver.full_name or assignment.driver
         assignment["driver_phone"] = _user_phone(driver)
+    if frappe.db.exists("DocType", "Awamir Delivery Batch"):
+        batch_names = frappe.get_all(
+            "Awamir Delivery Batch Order",
+            filters={"order": doc.name},
+            pluck="parent",
+        )
+        data["delivery_batches"] = frappe.get_all(
+            "Awamir Delivery Batch",
+            filters={"name": ["in", batch_names]},
+            fields=["*"],
+            order_by="modified desc",
+        ) if batch_names else []
+    else:
+        data["delivery_batches"] = []
     return data
 
 
@@ -348,7 +516,7 @@ def _user_phone(user_doc):
 
 @frappe.whitelist()
 def upload_order_attachment(order, file, file_type="Other", notes=None):
-    require_roles(["Awamir Branch Employee", "Awamir System Admin"])
+    require_permissions(PERMISSION_ORDER_CREATE)
     doc = frappe.get_doc("Awamir Order Request", order)
     require_branch_scope(doc.created_branch)
     doc.append("attachments", {"file": file, "file_type": file_type, "uploaded_by": frappe.session.user, "notes": notes})

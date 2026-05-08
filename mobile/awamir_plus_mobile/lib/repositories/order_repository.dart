@@ -191,6 +191,56 @@ class OrderRepository {
     }
   }
 
+  Future<List<DepartmentWorkOrder>> createDepartmentWorkOrders({
+    required String orderId,
+    String fallbackDepartmentId = '',
+  }) async {
+    try {
+      return _useMockData
+          ? _mockService.createDepartmentWorkOrders(
+              orderId: orderId,
+              fallbackDepartmentId: fallbackDepartmentId,
+            )
+          : _erpnextService.createDepartmentWorkOrders(
+              orderId: orderId,
+              fallbackDepartmentId: fallbackDepartmentId,
+            );
+    } on AppException {
+      rethrow;
+    } catch (error) {
+      throw RepositoryException(
+        'تعذر إنشاء أوامر عمل الأقسام',
+        code: 'department_work_orders_create_failed',
+        cause: error,
+      );
+    }
+  }
+
+  Future<List<DepartmentWorkOrder>> getDepartmentWorkOrders({
+    String? orderId,
+    String? departmentId,
+  }) async {
+    try {
+      return _useMockData
+          ? _mockService.getDepartmentWorkOrders(
+              orderId: orderId,
+              departmentId: departmentId,
+            )
+          : _erpnextService.getDepartmentWorkOrders(
+              orderId: orderId,
+              departmentId: departmentId,
+            );
+    } on AppException {
+      rethrow;
+    } catch (error) {
+      throw RepositoryException(
+        'تعذر تحميل أوامر عمل الأقسام',
+        code: 'department_work_orders_load_failed',
+        cause: error,
+      );
+    }
+  }
+
   Future<List<Order>> getProductionOrders(AppUser user) async {
     try {
       return _useMockData
@@ -230,6 +280,34 @@ class OrderRepository {
       throw RepositoryException(
         'تعذر تحديث حالة الإنتاج',
         code: 'production_status_update_failed',
+        cause: error,
+      );
+    }
+  }
+
+  Future<DepartmentWorkOrder> updateWorkOrderStatus({
+    required String workOrderId,
+    required DepartmentWorkOrderStatus status,
+    String notes = '',
+  }) async {
+    try {
+      return _useMockData
+          ? _mockService.updateWorkOrderStatus(
+              workOrderId: workOrderId,
+              status: status,
+              notes: notes,
+            )
+          : _erpnextService.updateWorkOrderStatus(
+              workOrderId: workOrderId,
+              status: status,
+              notes: notes,
+            );
+    } on AppException {
+      rethrow;
+    } catch (error) {
+      throw RepositoryException(
+        'تعذر تحديث أمر العمل',
+        code: 'department_work_order_update_failed',
         cause: error,
       );
     }
@@ -327,6 +405,72 @@ class OrderRepository {
       throw RepositoryException(
         'تعذر تحميل السائقين',
         code: 'drivers_load_failed',
+        cause: error,
+      );
+    }
+  }
+
+  Future<List<DeliveryBatch>> createDeliveryBatches({String? branchId}) async {
+    try {
+      return _useMockData
+          ? _mockService.createDeliveryBatches(branchId: branchId)
+          : _erpnextService.createDeliveryBatches(branchId: branchId);
+    } on AppException {
+      rethrow;
+    } catch (error) {
+      throw RepositoryException(
+        'تعذر إنشاء دفعات التوصيل',
+        code: 'delivery_batches_create_failed',
+        cause: error,
+      );
+    }
+  }
+
+  Future<List<DeliveryBatch>> getDeliveryBatches({
+    DeliveryBatchStatus? status,
+    String? destinationBranch,
+  }) async {
+    try {
+      return _useMockData
+          ? _mockService.getDeliveryBatches(
+              status: status,
+              destinationBranch: destinationBranch,
+            )
+          : _erpnextService.getDeliveryBatches(
+              status: status,
+              destinationBranch: destinationBranch,
+            );
+    } on AppException {
+      rethrow;
+    } catch (error) {
+      throw RepositoryException(
+        'تعذر تحميل دفعات التوصيل',
+        code: 'delivery_batches_load_failed',
+        cause: error,
+      );
+    }
+  }
+
+  Future<DeliveryBatch> assignDeliveryBatch({
+    required String batchId,
+    required String driverId,
+  }) async {
+    try {
+      return _useMockData
+          ? _mockService.assignDeliveryBatch(
+              batchId: batchId,
+              driverId: driverId,
+            )
+          : _erpnextService.assignDeliveryBatch(
+              batchId: batchId,
+              driverId: driverId,
+            );
+    } on AppException {
+      rethrow;
+    } catch (error) {
+      throw RepositoryException(
+        'تعذر إسناد دفعة التوصيل',
+        code: 'delivery_batch_assign_failed',
         cause: error,
       );
     }
@@ -580,6 +724,34 @@ class OrderRepository {
       throw RepositoryException(
         'تعذر إرجاع الطلب للتعديل',
         code: 'order_return_failed',
+        cause: error,
+      );
+    }
+  }
+
+  Future<Order> cancelOrder({
+    required String orderId,
+    required AppUser changedBy,
+    required String reason,
+  }) async {
+    try {
+      return _useMockData
+          ? _mockService.cancelOrder(
+              orderId: orderId,
+              changedBy: changedBy,
+              reason: reason,
+            )
+          : _erpnextService.cancelOrder(
+              orderId: orderId,
+              changedBy: changedBy,
+              reason: reason,
+            );
+    } on AppException {
+      rethrow;
+    } catch (error) {
+      throw RepositoryException(
+        'تعذر إلغاء الطلب',
+        code: 'order_cancel_failed',
         cause: error,
       );
     }

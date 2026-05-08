@@ -233,6 +233,36 @@ class ErpnextService implements AuthService {
     return _mapOrderFromActionResponse(data);
   }
 
+  Future<List<DepartmentWorkOrder>> createDepartmentWorkOrders({
+    required String orderId,
+    String fallbackDepartmentId = '',
+  }) async {
+    final data = await _apiClient.post<Map<String, dynamic>>(
+      'awamir_plus.api.distribution.create_department_work_orders',
+      body: {
+        'order': orderId,
+        'order_id': orderId,
+        'fallback_department': fallbackDepartmentId.trim(),
+      },
+      parser: (data) => _asMap(data),
+    );
+    return _asList(
+      data['work_orders'],
+    ).map((item) => _mapDepartmentWorkOrder(_asMap(item))).toList();
+  }
+
+  Future<List<DepartmentWorkOrder>> getDepartmentWorkOrders({
+    String? orderId,
+    String? departmentId,
+  }) async {
+    final data = await _apiClient.get<List<dynamic>>(
+      'awamir_plus.api.distribution.get_department_work_orders',
+      queryParameters: {'order': orderId, 'department': departmentId},
+      parser: _asList,
+    );
+    return data.map((item) => _mapDepartmentWorkOrder(_asMap(item))).toList();
+  }
+
   Future<List<Order>> getProductionOrders(AppUser user) async {
     final data = await _apiClient.get<List<dynamic>>(
       'awamir_plus.api.production.get_production_orders',
@@ -257,6 +287,24 @@ class ErpnextService implements AuthService {
       parser: (data) => _asMap(data),
     );
     return _mapOrderFromActionResponse(data);
+  }
+
+  Future<DepartmentWorkOrder> updateWorkOrderStatus({
+    required String workOrderId,
+    required DepartmentWorkOrderStatus status,
+    String notes = '',
+  }) async {
+    final data = await _apiClient.post<Map<String, dynamic>>(
+      'awamir_plus.api.production.update_work_order_status',
+      body: {
+        'work_order': workOrderId,
+        'status': _departmentWorkOrderStatusKey(status),
+        'notes': notes.trim(),
+      },
+      parser: (data) => _asMap(data),
+    );
+    final workOrder = _asMap(data['work_order']);
+    return _mapDepartmentWorkOrder(workOrder.isEmpty ? data : workOrder);
   }
 
   Future<List<Order>> getPickupOrders(AppUser user) async {
@@ -312,6 +360,57 @@ class ErpnextService implements AuthService {
       parser: _asList,
     );
     return data.map((item) => _mapDriverProfile(_asMap(item))).toList();
+  }
+
+  Future<List<DeliveryBatch>> createDeliveryBatches({String? branchId}) async {
+    final data = await _apiClient.post<Map<String, dynamic>>(
+      'awamir_plus.api.delivery.create_delivery_batches',
+      body: {'branch_id': branchId},
+      parser: (data) => _asMap(data),
+    );
+    return _asList(
+      data['batches'],
+    ).map((item) => _mapDeliveryBatch(_asMap(item))).toList();
+  }
+
+  Future<List<DeliveryBatch>> getDeliveryBatches({
+    DeliveryBatchStatus? status,
+    String? destinationBranch,
+  }) async {
+    final data = await _apiClient.get<List<dynamic>>(
+      'awamir_plus.api.delivery.get_delivery_batches',
+      queryParameters: {
+        'status': status == null ? null : _deliveryBatchStatusKey(status),
+        'destination_branch': destinationBranch,
+      },
+      parser: _asList,
+    );
+    return data.map((item) => _mapDeliveryBatch(_asMap(item))).toList();
+  }
+
+  Future<DeliveryBatch> assignDeliveryBatch({
+    required String batchId,
+    required String driverId,
+  }) async {
+    final trimmedDriver = driverId.trim();
+    if (trimmedDriver.isEmpty) {
+      throw const NetworkException(
+        'اختيار السائق مطلوب',
+        code: 'driver_required',
+      );
+    }
+    final data = await _apiClient.post<Map<String, dynamic>>(
+      'awamir_plus.api.delivery.assign_delivery_batch',
+      body: {
+        'batch': batchId,
+        'batch_id': batchId,
+        'driver': trimmedDriver,
+        'driver_id': trimmedDriver,
+      },
+      parser: (data) => _asMap(data),
+    );
+    final batch = _asMap(data['batch']);
+    return _mapDeliveryBatch(batch.isEmpty ? data : batch);
   }
 
   Future<Order> assignDriverToOrder({
@@ -485,6 +584,26 @@ class ErpnextService implements AuthService {
     final data = await _apiClient.post<Map<String, dynamic>>(
       'awamir_plus.api.approvals.return_order_for_edit',
       body: {'order': orderId, 'notes': trimmedNotes, 'note': trimmedNotes},
+      parser: (data) => _asMap(data),
+    );
+    return _mapOrderFromActionResponse(data);
+  }
+
+  Future<Order> cancelOrder({
+    required String orderId,
+    required AppUser changedBy,
+    required String reason,
+  }) async {
+    final trimmedReason = reason.trim();
+    if (trimmedReason.isEmpty) {
+      throw const NetworkException(
+        'سبب الإلغاء مطلوب',
+        code: 'cancellation_reason_required',
+      );
+    }
+    final data = await _apiClient.post<Map<String, dynamic>>(
+      'awamir_plus.api.orders.cancel_order',
+      body: {'order': orderId, 'reason': trimmedReason},
       parser: (data) => _asMap(data),
     );
     return _mapOrderFromActionResponse(data);
@@ -1078,6 +1197,12 @@ class ErpnextService implements AuthService {
       erpSyncStatus: _mapErpSyncStatus(_string(data['erp_sync_status'])),
       erpSyncError: _string(data['erp_sync_error']),
       erpSyncedAt: DateTime.tryParse(_string(data['erp_synced_at'])),
+      departmentWorkOrders: _asList(
+        data['department_work_orders'],
+      ).map((item) => _mapDepartmentWorkOrder(_asMap(item))).toList(),
+      deliveryBatches: _asList(
+        data['delivery_batches'],
+      ).map((item) => _mapDeliveryBatch(_asMap(item))).toList(),
     );
   }
 
@@ -1225,6 +1350,80 @@ class ErpnextService implements AuthService {
       failureReason: _string(data['failure_reason']),
       proofImagePath: _string(data['proof_image']),
       driverNotes: _string(data['driver_notes']),
+    );
+  }
+
+  DepartmentWorkOrder _mapDepartmentWorkOrder(Map<String, dynamic> data) {
+    final departmentId = _string(data['department']);
+    return DepartmentWorkOrder(
+      id: _string(data['name'], fallback: _string(data['id'])),
+      orderId: _string(data['order']),
+      departmentId: departmentId,
+      departmentName: _string(data['department_name'], fallback: departmentId),
+      status: _mapDepartmentWorkOrderStatus(_string(data['status'])),
+      productionCenter: _string(data['production_center']),
+      priority: _string(data['priority'], fallback: 'Normal'),
+      createdBy: _string(data['created_by']),
+      acceptedAt: _nullableDateTime(_string(data['accepted_at'])),
+      startedAt: _nullableDateTime(_string(data['started_at'])),
+      readyAt: _nullableDateTime(_string(data['ready_at'])),
+      rejectedAt: _nullableDateTime(_string(data['rejected_at'])),
+      delayReason: _string(data['delay_reason']),
+      rejectionReason: _string(data['rejection_reason']),
+      items: _asList(
+        data['items'],
+      ).map((item) => _mapDepartmentWorkOrderItem(_asMap(item))).toList(),
+    );
+  }
+
+  DepartmentWorkOrderItem _mapDepartmentWorkOrderItem(
+    Map<String, dynamic> data,
+  ) {
+    return DepartmentWorkOrderItem(
+      itemCode: _string(data['item_code']),
+      itemName: _string(
+        data['item_name'],
+        fallback: _string(data['item_code']),
+      ),
+      description: _string(data['description']),
+      qty: _number(data['qty']),
+      rate: _number(data['rate']),
+      amount: _number(data['amount']),
+      productCategory: _string(data['product_category']),
+      sourceOrderItem: _string(data['source_order_item']),
+    );
+  }
+
+  DeliveryBatch _mapDeliveryBatch(Map<String, dynamic> data) {
+    final id = _string(data['name'], fallback: _string(data['id']));
+    return DeliveryBatch(
+      id: id,
+      batchNumber: _string(data['batch_number'], fallback: id),
+      destinationBranch: _string(data['destination_branch']),
+      status: _mapDeliveryBatchStatus(_string(data['status'])),
+      driverId: _string(data['driver']),
+      driverName: _string(
+        data['driver_name'],
+        fallback: _string(data['driver']),
+      ),
+      assignedBy: _string(data['assigned_by']),
+      assignedAt: _nullableDateTime(_string(data['assigned_at'])),
+      orders: _asList(
+        data['orders'],
+      ).map((item) => _mapDeliveryBatchOrder(_asMap(item))).toList(),
+    );
+  }
+
+  DeliveryBatchOrder _mapDeliveryBatchOrder(Map<String, dynamic> data) {
+    return DeliveryBatchOrder(
+      orderId: _string(data['order']),
+      orderNumber: _string(
+        data['order_number'],
+        fallback: _string(data['order']),
+      ),
+      customerName: _string(data['customer_name']),
+      customerPhone: _string(data['customer_phone']),
+      status: _mapOrderStatus(_string(data['status'])),
     );
   }
 
@@ -1470,12 +1669,96 @@ class ErpnextService implements AuthService {
         return 'Delivered';
       case OrderStatus.deliveryFailed:
         return 'Delivery Failed';
+      case OrderStatus.cancelled:
+        return 'Cancelled';
       case OrderStatus.pending:
         return 'Pending Supervisor Approval';
       case OrderStatus.approved:
         return 'Sent To Distribution';
       case OrderStatus.ready:
         return 'Ready For Pickup';
+    }
+  }
+
+  String _departmentWorkOrderStatusKey(DepartmentWorkOrderStatus status) {
+    switch (status) {
+      case DepartmentWorkOrderStatus.pending:
+        return 'pending';
+      case DepartmentWorkOrderStatus.accepted:
+        return 'accepted';
+      case DepartmentWorkOrderStatus.inProduction:
+        return 'in_production';
+      case DepartmentWorkOrderStatus.delayed:
+        return 'delayed';
+      case DepartmentWorkOrderStatus.ready:
+        return 'ready';
+      case DepartmentWorkOrderStatus.rejected:
+        return 'rejected';
+      case DepartmentWorkOrderStatus.cancelled:
+        return 'cancelled';
+    }
+  }
+
+  DepartmentWorkOrderStatus _mapDepartmentWorkOrderStatus(String value) {
+    switch (value) {
+      case 'accepted':
+        return DepartmentWorkOrderStatus.accepted;
+      case 'in_production':
+        return DepartmentWorkOrderStatus.inProduction;
+      case 'delayed':
+        return DepartmentWorkOrderStatus.delayed;
+      case 'ready':
+        return DepartmentWorkOrderStatus.ready;
+      case 'rejected':
+        return DepartmentWorkOrderStatus.rejected;
+      case 'cancelled':
+        return DepartmentWorkOrderStatus.cancelled;
+      case 'pending':
+      default:
+        return DepartmentWorkOrderStatus.pending;
+    }
+  }
+
+  String _deliveryBatchStatusKey(DeliveryBatchStatus status) {
+    switch (status) {
+      case DeliveryBatchStatus.draft:
+        return 'draft';
+      case DeliveryBatchStatus.assigned:
+        return 'assigned';
+      case DeliveryBatchStatus.pickedUp:
+        return 'picked_up';
+      case DeliveryBatchStatus.outForDelivery:
+        return 'out_for_delivery';
+      case DeliveryBatchStatus.delivered:
+        return 'delivered';
+      case DeliveryBatchStatus.partiallyDelivered:
+        return 'partially_delivered';
+      case DeliveryBatchStatus.returned:
+        return 'returned';
+      case DeliveryBatchStatus.cancelled:
+        return 'cancelled';
+    }
+  }
+
+  DeliveryBatchStatus _mapDeliveryBatchStatus(String value) {
+    switch (value) {
+      case 'assigned':
+        return DeliveryBatchStatus.assigned;
+      case 'picked_up':
+        return DeliveryBatchStatus.pickedUp;
+      case 'out_for_delivery':
+        return DeliveryBatchStatus.outForDelivery;
+      case 'delivered':
+        return DeliveryBatchStatus.delivered;
+      case 'partially_delivered':
+        return DeliveryBatchStatus.partiallyDelivered;
+      case 'returned':
+        return DeliveryBatchStatus.returned;
+      case 'cancelled':
+        return DeliveryBatchStatus.cancelled;
+      case 'draft':
+      default:
+        return DeliveryBatchStatus.draft;
     }
   }
 
@@ -1511,6 +1794,8 @@ class ErpnextService implements AuthService {
         return OrderStatus.delivered;
       case 'Delivery Failed':
         return OrderStatus.deliveryFailed;
+      case 'Cancelled':
+        return OrderStatus.cancelled;
       default:
         return OrderStatus.pending;
     }
@@ -1541,6 +1826,7 @@ class ErpnextService implements AuthService {
       case OrderStatus.returnedForEdit:
       case OrderStatus.ready:
       case OrderStatus.rejected:
+      case OrderStatus.cancelled:
         return 1;
     }
   }

@@ -19,6 +19,7 @@ enum OrderStatus {
   ready,
   delivered,
   rejected,
+  cancelled,
 }
 
 extension OrderStatusDetails on OrderStatus {
@@ -60,6 +61,8 @@ extension OrderStatusDetails on OrderStatus {
         return 'مسلّم';
       case OrderStatus.rejected:
         return 'مرفوض';
+      case OrderStatus.cancelled:
+        return 'ملغي';
     }
   }
 }
@@ -185,6 +188,71 @@ extension PaymentAllocationStatusDetails on PaymentAllocationStatus {
         return 'مخصص';
       case PaymentAllocationStatus.failed:
         return 'فشل التخصيص';
+    }
+  }
+}
+
+enum DepartmentWorkOrderStatus {
+  pending,
+  accepted,
+  inProduction,
+  delayed,
+  ready,
+  rejected,
+  cancelled,
+}
+
+extension DepartmentWorkOrderStatusDetails on DepartmentWorkOrderStatus {
+  String get label {
+    switch (this) {
+      case DepartmentWorkOrderStatus.pending:
+        return 'بانتظار القبول';
+      case DepartmentWorkOrderStatus.accepted:
+        return 'مقبول';
+      case DepartmentWorkOrderStatus.inProduction:
+        return 'قيد التنفيذ';
+      case DepartmentWorkOrderStatus.delayed:
+        return 'متأخر';
+      case DepartmentWorkOrderStatus.ready:
+        return 'جاهز';
+      case DepartmentWorkOrderStatus.rejected:
+        return 'مرفوض';
+      case DepartmentWorkOrderStatus.cancelled:
+        return 'ملغي';
+    }
+  }
+}
+
+enum DeliveryBatchStatus {
+  draft,
+  assigned,
+  pickedUp,
+  outForDelivery,
+  delivered,
+  partiallyDelivered,
+  returned,
+  cancelled,
+}
+
+extension DeliveryBatchStatusDetails on DeliveryBatchStatus {
+  String get label {
+    switch (this) {
+      case DeliveryBatchStatus.draft:
+        return 'مسودة';
+      case DeliveryBatchStatus.assigned:
+        return 'مسندة';
+      case DeliveryBatchStatus.pickedUp:
+        return 'استلمها السائق';
+      case DeliveryBatchStatus.outForDelivery:
+        return 'في الطريق';
+      case DeliveryBatchStatus.delivered:
+        return 'مسلّمة';
+      case DeliveryBatchStatus.partiallyDelivered:
+        return 'مسلّمة جزئياً';
+      case DeliveryBatchStatus.returned:
+        return 'راجعة';
+      case DeliveryBatchStatus.cancelled:
+        return 'ملغاة';
     }
   }
 }
@@ -832,6 +900,8 @@ class Order {
     this.erpSyncStatus = ErpSyncStatus.notSynced,
     this.erpSyncError = '',
     this.erpSyncedAt,
+    this.departmentWorkOrders = const [],
+    this.deliveryBatches = const [],
   });
 
   final String id;
@@ -881,6 +951,8 @@ class Order {
   final ErpSyncStatus erpSyncStatus;
   final String erpSyncError;
   final DateTime? erpSyncedAt;
+  final List<DepartmentWorkOrder> departmentWorkOrders;
+  final List<DeliveryBatch> deliveryBatches;
 
   String get pickupDateText => pickupDate == null
       ? date
@@ -922,6 +994,8 @@ class Order {
     ErpSyncStatus? erpSyncStatus,
     String? erpSyncError,
     DateTime? erpSyncedAt,
+    List<DepartmentWorkOrder>? departmentWorkOrders,
+    List<DeliveryBatch>? deliveryBatches,
     bool clearErpSyncError = false,
   }) {
     return Order(
@@ -977,6 +1051,8 @@ class Order {
       erpSyncStatus: erpSyncStatus ?? this.erpSyncStatus,
       erpSyncError: clearErpSyncError ? '' : erpSyncError ?? this.erpSyncError,
       erpSyncedAt: erpSyncedAt ?? this.erpSyncedAt,
+      departmentWorkOrders: departmentWorkOrders ?? this.departmentWorkOrders,
+      deliveryBatches: deliveryBatches ?? this.deliveryBatches,
     );
   }
 }
@@ -1340,6 +1416,104 @@ class DeliveryAssignment {
       driverNotes: driverNotes ?? this.driverNotes,
     );
   }
+}
+
+class DepartmentWorkOrderItem {
+  const DepartmentWorkOrderItem({
+    required this.itemCode,
+    required this.itemName,
+    required this.qty,
+    required this.rate,
+    required this.amount,
+    this.description = '',
+    this.productCategory = '',
+    this.sourceOrderItem = '',
+  });
+
+  final String itemCode;
+  final String itemName;
+  final num qty;
+  final num rate;
+  final num amount;
+  final String description;
+  final String productCategory;
+  final String sourceOrderItem;
+}
+
+class DepartmentWorkOrder {
+  const DepartmentWorkOrder({
+    required this.id,
+    required this.orderId,
+    required this.departmentId,
+    required this.departmentName,
+    required this.status,
+    this.productionCenter = '',
+    this.priority = 'Normal',
+    this.items = const [],
+    this.createdBy = '',
+    this.acceptedAt,
+    this.startedAt,
+    this.readyAt,
+    this.rejectedAt,
+    this.delayReason = '',
+    this.rejectionReason = '',
+  });
+
+  final String id;
+  final String orderId;
+  final String departmentId;
+  final String departmentName;
+  final DepartmentWorkOrderStatus status;
+  final String productionCenter;
+  final String priority;
+  final List<DepartmentWorkOrderItem> items;
+  final String createdBy;
+  final DateTime? acceptedAt;
+  final DateTime? startedAt;
+  final DateTime? readyAt;
+  final DateTime? rejectedAt;
+  final String delayReason;
+  final String rejectionReason;
+}
+
+class DeliveryBatchOrder {
+  const DeliveryBatchOrder({
+    required this.orderId,
+    required this.orderNumber,
+    required this.customerName,
+    required this.customerPhone,
+    required this.status,
+  });
+
+  final String orderId;
+  final String orderNumber;
+  final String customerName;
+  final String customerPhone;
+  final OrderStatus status;
+}
+
+class DeliveryBatch {
+  const DeliveryBatch({
+    required this.id,
+    required this.batchNumber,
+    required this.destinationBranch,
+    required this.status,
+    this.driverId = '',
+    this.driverName = '',
+    this.assignedBy = '',
+    this.assignedAt,
+    this.orders = const [],
+  });
+
+  final String id;
+  final String batchNumber;
+  final String destinationBranch;
+  final DeliveryBatchStatus status;
+  final String driverId;
+  final String driverName;
+  final String assignedBy;
+  final DateTime? assignedAt;
+  final List<DeliveryBatchOrder> orders;
 }
 
 class DailyCashClosure {

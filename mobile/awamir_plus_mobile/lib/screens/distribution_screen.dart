@@ -84,6 +84,16 @@ class _DistributionScreenState extends State<DistributionScreen> {
                 ),
               ),
               const SizedBox(height: 14),
+              if (_filter == _DistributionFilter.readyDelivery ||
+                  _filter == _DistributionFilter.assignedDriver) ...[
+                _DeliveryBatchesSection(
+                  batches: widget.controller.deliveryBatches,
+                  isLoading: widget.controller.isActionLoading,
+                  onCreate: _createDeliveryBatches,
+                  onAssign: _assignDeliveryBatch,
+                ),
+                const SizedBox(height: 6),
+              ],
               SectionHeader(title: _filter.label),
               if (widget.controller.isActionLoading && orders.isEmpty)
                 const SizedBox(height: 280, child: LoadingStateView())
@@ -134,6 +144,180 @@ class _DistributionScreenState extends State<DistributionScreen> {
             order.status == OrderStatus.driverPickedUp ||
             order.status == OrderStatus.outForDelivery;
     }
+  }
+
+  Future<void> _createDeliveryBatches() async {
+    final batches = await widget.controller.createDeliveryBatches();
+    if (!mounted) return;
+    if (batches == null) {
+      final error = widget.controller.actionErrorMessage;
+      if (error != null) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error)));
+      }
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          batches.isEmpty
+              ? 'لا توجد طلبات جاهزة لإنشاء دفعات توصيل'
+              : 'تم تجهيز ${batches.length} دفعة توصيل',
+        ),
+      ),
+    );
+  }
+
+  Future<void> _assignDeliveryBatch(DeliveryBatch batch) async {
+    final driver = await showDialog<DriverProfile>(
+      context: context,
+      builder: (_) => _DriverPickerDialog(
+        driversFuture: widget.controller.getAvailableDrivers(
+          branchId: batch.destinationBranch,
+        ),
+      ),
+    );
+    if (driver == null) return;
+    if (!mounted) return;
+
+    final updated = await widget.controller.assignDeliveryBatch(
+      batchId: batch.id,
+      driverId: driver.id,
+    );
+    if (!mounted) return;
+    if (updated == null) {
+      final error = widget.controller.actionErrorMessage;
+      if (error != null) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error)));
+      }
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('تم إسناد دفعة التوصيل للسائق')),
+    );
+  }
+}
+
+class _DeliveryBatchesSection extends StatelessWidget {
+  const _DeliveryBatchesSection({
+    required this.batches,
+    required this.isLoading,
+    required this.onCreate,
+    required this.onAssign,
+  });
+
+  final List<DeliveryBatch> batches;
+  final bool isLoading;
+  final VoidCallback onCreate;
+  final ValueChanged<DeliveryBatch> onAssign;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: _SectionShell(
+        title: 'دفعات التوصيل',
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            OutlinedButton.icon(
+              onPressed: isLoading ? null : onCreate,
+              icon: const Icon(Icons.playlist_add_check),
+              label: const Text('تجهيز دفعات من الطلبات الجاهزة'),
+            ),
+            const SizedBox(height: 10),
+            if (batches.isEmpty)
+              const Text(
+                'لا توجد دفعات توصيل مجهزة حالياً',
+                style: TextStyle(
+                  color: AppColors.textMuted,
+                  fontWeight: FontWeight.w700,
+                ),
+              )
+            else
+              ...batches.take(5).map((batch) {
+                final canAssign = batch.status == DeliveryBatchStatus.draft;
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.cream,
+                    borderRadius: BorderRadius.circular(AppRadius.sm),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              batch.batchNumber,
+                              style: const TextStyle(
+                                color: AppColors.navy,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ),
+                          _DeliveryBatchPill(status: batch.status),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      _CompactRow(
+                        label: 'الوجهة',
+                        value: batch.destinationBranch,
+                      ),
+                      _CompactRow(
+                        label: 'الطلبات',
+                        value: batch.orders.length.toString(),
+                      ),
+                      _CompactRow(label: 'السائق', value: batch.driverName),
+                      if (canAssign) ...[
+                        const SizedBox(height: 8),
+                        Align(
+                          alignment: AlignmentDirectional.centerEnd,
+                          child: ElevatedButton.icon(
+                            onPressed: () => onAssign(batch),
+                            icon: const Icon(Icons.assignment_ind_outlined),
+                            label: const Text('إسناد الدفعة'),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                );
+              }),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DeliveryBatchPill extends StatelessWidget {
+  const _DeliveryBatchPill({required this.status});
+
+  final DeliveryBatchStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: AppColors.goldLight,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        status.label,
+        style: const TextStyle(
+          color: AppColors.navy,
+          fontSize: 11,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+    );
   }
 }
 

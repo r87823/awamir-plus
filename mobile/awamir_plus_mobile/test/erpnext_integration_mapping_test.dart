@@ -541,6 +541,69 @@ void main() {
     expect(existingOrder.productionDepartmentId, isEmpty);
   });
 
+  test(
+    'createDepartmentWorkOrders يحول أوامر عمل الأقسام من ERPNext',
+    () async {
+      late Map<String, dynamic> sentBody;
+      final service = ErpnextService(
+        apiClient: ApiClient(
+          baseUrl: 'https://example.com',
+          cookieStore: _MemoryCookieStore(),
+          httpClient: MockClient((request) async {
+            sentBody = jsonDecode(request.body) as Map<String, dynamic>;
+            return _jsonResponse({
+              'message': {
+                'order_id': 'ORD-2026-00012',
+                'work_orders': [_departmentWorkOrderPayload()],
+              },
+            });
+          }),
+        ),
+      );
+
+      final workOrders = await service.createDepartmentWorkOrders(
+        orderId: 'ORD-2026-00012',
+        fallbackDepartmentId: 'PD-SWEETS',
+      );
+
+      expect(sentBody['order'], 'ORD-2026-00012');
+      expect(sentBody['fallback_department'], 'PD-SWEETS');
+      expect(workOrders.single.id, 'DWO-0001');
+      expect(workOrders.single.status, DepartmentWorkOrderStatus.pending);
+      expect(workOrders.single.items.single.itemCode, 'AWAMIR-KUNAFA');
+    },
+  );
+
+  test('updateWorkOrderStatus يرسل حالة أمر العمل الصحيحة', () async {
+    late Map<String, dynamic> sentBody;
+    final service = ErpnextService(
+      apiClient: ApiClient(
+        baseUrl: 'https://example.com',
+        cookieStore: _MemoryCookieStore(),
+        httpClient: MockClient((request) async {
+          sentBody = jsonDecode(request.body) as Map<String, dynamic>;
+          return _jsonResponse({
+            'message': {
+              'work_order': _departmentWorkOrderPayload(
+                status: 'in_production',
+              ),
+            },
+          });
+        }),
+      ),
+    );
+
+    final workOrder = await service.updateWorkOrderStatus(
+      workOrderId: 'DWO-0001',
+      status: DepartmentWorkOrderStatus.inProduction,
+      notes: 'بدأ التنفيذ',
+    );
+
+    expect(sentBody['work_order'], 'DWO-0001');
+    expect(sentBody['status'], 'in_production');
+    expect(workOrder.status, DepartmentWorkOrderStatus.inProduction);
+  });
+
   test('updateProductionStatus يرسل الحالة الصحيحة', () async {
     late Map<String, dynamic> sentBody;
     final service = ErpnextService(
@@ -629,6 +692,87 @@ void main() {
     expect(drivers.single.fullName, 'سائق أوامر');
     expect(drivers.single.currentAssignedOrdersCount, 2);
     expect(drivers.single.isActive, isTrue);
+  });
+
+  test('createDeliveryBatches يحول دفعات التوصيل من ERPNext', () async {
+    final service = ErpnextService(
+      apiClient: ApiClient(
+        baseUrl: 'https://example.com',
+        cookieStore: _MemoryCookieStore(),
+        httpClient: MockClient(
+          (_) async => _jsonResponse({
+            'message': {
+              'batches': [_deliveryBatchPayload()],
+            },
+          }),
+        ),
+      ),
+    );
+
+    final batches = await service.createDeliveryBatches(branchId: 'BR-001');
+
+    expect(batches.single.id, 'DB-0001');
+    expect(batches.single.status, DeliveryBatchStatus.draft);
+    expect(batches.single.orders.single.orderNumber, 'ORD-2026-00012');
+  });
+
+  test('assignDeliveryBatch يرفض بدون سائق قبل استدعاء API', () async {
+    var called = false;
+    final service = ErpnextService(
+      apiClient: ApiClient(
+        baseUrl: 'https://example.com',
+        cookieStore: _MemoryCookieStore(),
+        httpClient: MockClient((_) async {
+          called = true;
+          return _jsonResponse({});
+        }),
+      ),
+    );
+
+    await expectLater(
+      service.assignDeliveryBatch(batchId: 'DB-0001', driverId: ' '),
+      throwsA(
+        isA<AppException>().having(
+          (error) => error.code,
+          'code',
+          'driver_required',
+        ),
+      ),
+    );
+
+    expect(called, isFalse);
+  });
+
+  test('assignDeliveryBatch يحول الاستجابة إلى دفعة مسندة', () async {
+    late Map<String, dynamic> sentBody;
+    final service = ErpnextService(
+      apiClient: ApiClient(
+        baseUrl: 'https://example.com',
+        cookieStore: _MemoryCookieStore(),
+        httpClient: MockClient((request) async {
+          sentBody = jsonDecode(request.body) as Map<String, dynamic>;
+          return _jsonResponse({
+            'message': {
+              'batch': _deliveryBatchPayload(
+                status: 'assigned',
+                driver: 'driver@example.com',
+                driverName: 'سائق أوامر',
+              ),
+            },
+          });
+        }),
+      ),
+    );
+
+    final batch = await service.assignDeliveryBatch(
+      batchId: 'DB-0001',
+      driverId: 'driver@example.com',
+    );
+
+    expect(sentBody['batch'], 'DB-0001');
+    expect(sentBody['driver'], 'driver@example.com');
+    expect(batch.status, DeliveryBatchStatus.assigned);
+    expect(batch.driverName, 'سائق أوامر');
   });
 
   test('assignDriverToOrder يرفض بدون سائق قبل استدعاء API', () async {
@@ -1249,6 +1393,62 @@ void main() {
     expect(called, isFalse);
   });
 
+  test('cancelOrder يرفض بدون reason قبل استدعاء API', () async {
+    var called = false;
+    final service = ErpnextService(
+      apiClient: ApiClient(
+        baseUrl: 'https://example.com',
+        cookieStore: _MemoryCookieStore(),
+        httpClient: MockClient((_) async {
+          called = true;
+          return _jsonResponse({});
+        }),
+      ),
+    );
+
+    await expectLater(
+      service.cancelOrder(
+        orderId: 'ORD-2026-00012',
+        changedBy: _erpUser,
+        reason: ' ',
+      ),
+      throwsA(
+        isA<AppException>().having(
+          (error) => error.code,
+          'code',
+          'cancellation_reason_required',
+        ),
+      ),
+    );
+
+    expect(called, isFalse);
+  });
+
+  test('cancelOrder يحول الاستجابة إلى Cancelled', () async {
+    final service = ErpnextService(
+      apiClient: ApiClient(
+        baseUrl: 'https://example.com',
+        cookieStore: _MemoryCookieStore(),
+        httpClient: MockClient(
+          (_) async => _jsonResponse({
+            'message': {
+              'message': 'Order cancelled successfully.',
+              'order': _orderPayload(status: 'Cancelled'),
+            },
+          }),
+        ),
+      ),
+    );
+
+    final order = await service.cancelOrder(
+      orderId: 'ORD-2026-00012',
+      changedBy: _erpUser,
+      reason: 'طلب العميل الإلغاء',
+    );
+
+    expect(order.status, OrderStatus.cancelled);
+  });
+
   test('API error لا يغيّر الحالة المحلية للطلب', () async {
     final existingOrder = _localOrder(
       status: OrderStatus.pendingSupervisorApproval,
@@ -1508,6 +1708,56 @@ Map<String, dynamic> _orderPayload({
     ],
     'payments': [
       {'payment_method': 'Card'},
+    ],
+  };
+}
+
+Map<String, dynamic> _departmentWorkOrderPayload({String status = 'pending'}) {
+  return {
+    'name': 'DWO-0001',
+    'order': 'ORD-2026-00012',
+    'department': 'PD-SWEETS',
+    'department_name': 'مصنع الحلويات',
+    'production_center': 'المصنع',
+    'status': status,
+    'priority': 'Normal',
+    'created_by': 'distribution@example.com',
+    'items': [
+      {
+        'item_code': 'AWAMIR-KUNAFA',
+        'item_name': 'كنافة',
+        'description': 'كنافة',
+        'qty': 2,
+        'rate': 95,
+        'amount': 190,
+        'product_category': 'الحلويات',
+      },
+    ],
+  };
+}
+
+Map<String, dynamic> _deliveryBatchPayload({
+  String status = 'draft',
+  String driver = '',
+  String driverName = '',
+}) {
+  return {
+    'name': 'DB-0001',
+    'batch_number': 'DB-2026-00001',
+    'destination_branch': 'BR-001',
+    'status': status,
+    'driver': driver,
+    'driver_name': driverName,
+    'assigned_by': driver.isEmpty ? '' : 'distribution@example.com',
+    'assigned_at': driver.isEmpty ? null : '2026-05-04 12:00:00',
+    'orders': [
+      {
+        'order': 'ORD-2026-00012',
+        'order_number': 'ORD-2026-00012',
+        'customer_name': 'عميل أوامر التجريبي',
+        'customer_phone': '0500000001',
+        'status': 'Ready For Delivery',
+      },
     ],
   };
 }

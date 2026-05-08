@@ -1,0 +1,56 @@
+{
+  "doctype": "DocType",
+  "name": "Awamir Department Work Order",
+  "module": "Awamir Plus",
+  "custom": 0,
+  "allow_rename": 0,
+  "track_changes": 1,
+  "autoname": "field:work_order_number",
+  "title_field": "work_order_number",
+  "sort_field": "modified",
+  "sort_order": "DESC",
+  "field_order": [
+    "work_order_number",
+    "order",
+    "production_center",
+    "department",
+    "status",
+    "priority",
+    "assigned_to",
+    "items",
+    "timing_section",
+    "accepted_at",
+    "started_at",
+    "ready_at",
+    "rejected_at",
+    "delay_reason",
+    "rejection_reason",
+    "notes",
+    "created_by"
+  ],
+  "fields": [
+    {"fieldname": "work_order_number", "label": "Work Order Number", "fieldtype": "Data", "read_only": 1, "unique": 1, "in_list_view": 1},
+    {"fieldname": "order", "label": "Order", "fieldtype": "Link", "options": "Awamir Order Request", "reqd": 1, "in_list_view": 1},
+    {"fieldname": "production_center", "label": "Production Center", "fieldtype": "Data", "in_list_view": 1},
+    {"fieldname": "department", "label": "Department", "fieldtype": "Link", "options": "Awamir Production Department", "reqd": 1, "in_list_view": 1},
+    {"fieldname": "status", "label": "Status", "fieldtype": "Select", "options": "pending\naccepted\nin_production\ndelayed\nready\nrejected\ncancelled", "default": "pending", "reqd": 1, "in_list_view": 1},
+    {"fieldname": "priority", "label": "Priority", "fieldtype": "Select", "options": "Normal\nHigh\nUrgent", "default": "Normal"},
+    {"fieldname": "assigned_to", "label": "Assigned To", "fieldtype": "Link", "options": "User"},
+    {"fieldname": "items", "label": "Items", "fieldtype": "Table", "options": "Awamir Department Work Order Item", "reqd": 1},
+    {"fieldname": "timing_section", "label": "Timing", "fieldtype": "Section Break"},
+    {"fieldname": "accepted_at", "label": "Accepted At", "fieldtype": "Datetime"},
+    {"fieldname": "started_at", "label": "Started At", "fieldtype": "Datetime"},
+    {"fieldname": "ready_at", "label": "Ready At", "fieldtype": "Datetime"},
+    {"fieldname": "rejected_at", "label": "Rejected At", "fieldtype": "Datetime"},
+    {"fieldname": "delay_reason", "label": "Delay Reason", "fieldtype": "Small Text"},
+    {"fieldname": "rejection_reason", "label": "Rejection Reason", "fieldtype": "Small Text"},
+    {"fieldname": "notes", "label": "Notes", "fieldtype": "Small Text"},
+    {"fieldname": "created_by", "label": "Created By", "fieldtype": "Link", "options": "User", "read_only": 1}
+  ],
+  "permissions": [
+    {"role": "Awamir Distribution Manager", "read": 1, "write": 1, "create": 1, "permlevel": 0},
+    {"role": "Awamir Production User", "read": 1, "write": 1, "permlevel": 0},
+    {"role": "Awamir System Admin", "read": 1, "write": 1, "create": 1, "delete": 1, "permlevel": 0}
+  ]
+}
+

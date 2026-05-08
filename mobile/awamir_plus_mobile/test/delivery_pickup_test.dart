@@ -74,6 +74,81 @@ void main() {
     );
   });
 
+  test('إنشاء أوامر عمل الأقسام idempotent لنفس الطلب والجهة', () async {
+    final repository = _repository();
+
+    final first = await repository.createDepartmentWorkOrders(
+      orderId: 'ORD-0022',
+      fallbackDepartmentId: 'PD-SWEETS',
+    );
+    final second = await repository.createDepartmentWorkOrders(
+      orderId: 'ORD-0022',
+      fallbackDepartmentId: 'PD-SWEETS',
+    );
+
+    expect(first, hasLength(1));
+    expect(second, hasLength(1));
+    expect(second.single.id, first.single.id);
+    expect(second.single.departmentId, 'PD-SWEETS');
+    expect(second.single.items.single.itemName, contains('تشيز'));
+  });
+
+  test(
+    'تحديث أمر عمل القسم يغير الحالة بدون التأثير على الطلب مباشرة',
+    () async {
+      final repository = _repository();
+      final workOrder = (await repository.createDepartmentWorkOrders(
+        orderId: 'ORD-0022',
+        fallbackDepartmentId: 'PD-SWEETS',
+      )).single;
+
+      final updated = await repository.updateWorkOrderStatus(
+        workOrderId: workOrder.id,
+        status: DepartmentWorkOrderStatus.inProduction,
+        notes: 'بدأ التنفيذ',
+      );
+
+      expect(updated.status, DepartmentWorkOrderStatus.inProduction);
+      expect(updated.startedAt, isNotNull);
+      final orders = await repository.getOrders();
+      expect(
+        orders.firstWhere((order) => order.id == 'ORD-0022').status,
+        OrderStatus.readyForDelivery,
+      );
+    },
+  );
+
+  test('تجهيز دفعات التوصيل يجمع الطلبات الجاهزة للتوصيل', () async {
+    final repository = _repository();
+
+    final batches = await repository.createDeliveryBatches(
+      branchId: 'BR-RUH-MUR',
+    );
+
+    expect(batches, hasLength(1));
+    expect(batches.single.status, DeliveryBatchStatus.draft);
+    expect(
+      batches.single.orders.map((order) => order.orderId),
+      contains('ORD-0022'),
+    );
+  });
+
+  test('إسناد دفعة التوصيل يحفظ السائق على الدفعة', () async {
+    final repository = _repository();
+    final batch = (await repository.createDeliveryBatches(
+      branchId: 'BR-RUH-MUR',
+    )).single;
+
+    final assigned = await repository.assignDeliveryBatch(
+      batchId: batch.id,
+      driverId: 'DRV-001',
+    );
+
+    expect(assigned.status, DeliveryBatchStatus.assigned);
+    expect(assigned.driverId, 'DRV-001');
+    expect(assigned.driverName, isNotEmpty);
+  });
+
   test('لا يمكن إسناد الطلب بدون اختيار سائق', () async {
     final repository = _repository();
 

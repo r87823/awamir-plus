@@ -75,6 +75,15 @@ def create_custom_fields():
                     "description": "Show this item group in Awamir Plus mobile category selection.",
                 },
             ],
+            "Branch": [
+                {
+                    "fieldname": "custom_awamir_branch_code",
+                    "label": "Awamir Branch Code",
+                    "fieldtype": "Data",
+                    "insert_after": "branch",
+                    "description": "Stable branch code used by Awamir Plus operations.",
+                },
+            ],
         },
         ignore_validate=True,
     )
