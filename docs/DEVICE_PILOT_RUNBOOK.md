@@ -182,6 +182,31 @@ flutter run -d 00008130-0014643A26F2001C \
 - The app launched successfully on the physical device.
 - UI interaction still needs to be completed manually on the iPhone screen because the current automation tools can inspect the Simulator UI, not the physical device UI.
 
+### iPhone 15 Pro white-screen crash fix - 2026-05-09
+
+Issue:
+
+- On `rayan 15 pro`, the debug build installed but stopped immediately with a white screen and native `EXC_BAD_ACCESS`.
+- The crash happened before Flutter rendered the first app screen.
+
+Fix:
+
+- Running once with `--no-enable-impeller` confirmed the crash was renderer-related.
+- `ios/Runner/Info.plist` now sets `FLTEnableImpeller` to `false` so iOS builds use the non-Impeller renderer by default.
+
+Validation:
+
+```bash
+flutter run -d 00008130-0014643A26F2001C \
+  --dart-define=USE_MOCK_DATA=false \
+  --dart-define=ERPNEXT_BASE_URL=https://awamirplus.r8787m.cc
+```
+
+- Build, signing, install, launch, and VM Service startup completed successfully without passing `--no-enable-impeller`.
+- `flutter analyze` passed.
+- `flutter test` passed.
+- Flutter still prints `Target native_assets required define SdkRoot but it was not provided`; this warning did not block launch.
+
 ### `ORD-2026-00086`
 
 This order was executed after validating that the iPhone app opens successfully in real ERPNext mode.
