@@ -43,6 +43,42 @@ For a real iPhone install from Xcode:
 4. Use the same Dart defines in the Flutter run command or Xcode build configuration.
 5. Do not add any API key or secret to the app.
 
+## Real iPhone Debug Timeout Workaround
+
+If `flutter run` builds successfully but fails with:
+
+```text
+Timed out waiting for CONFIGURATION_BUILD_DIR to update.
+Error launching application on rayan 15 pro.
+```
+
+the app build is usually valid, but Xcode failed to attach the debugger. Use a signed debug build and launch it without the debugger:
+
+```bash
+cd mobile/awamir_plus_mobile
+
+flutter build ios --debug \
+  --dart-define=USE_MOCK_DATA=false \
+  --dart-define=ERPNEXT_BASE_URL=https://awamirplus.r8787m.cc
+
+xcrun devicectl device install app \
+  --device 00008130-0014643A26F2001C \
+  build/ios/iphoneos/Runner.app
+
+xcrun devicectl device process launch \
+  --device 00008130-0014643A26F2001C \
+  com.awamir.plus
+```
+
+Validation result on `rayan 15 pro`:
+
+- Signed debug build completed.
+- `objective_c.framework` and `Runner.app` were signed by Team `675UQLLXXG`.
+- App installed successfully on the device.
+- App launched successfully with bundle id `com.awamir.plus`.
+
+If an install fails with `The executable contains an invalid signature`, rebuild without `--no-codesign`; that error usually means the app bundle was produced by a previous unsigned release build.
+
 ## Pilot Users
 
 Use one user per role:
@@ -124,4 +160,3 @@ Pause the pilot and investigate before continuing if any of these happen:
 - Cash closure totals do not match payments.
 - A user can view orders outside their branch, driver scope, or production department.
 - A Work Order is submitted while `submit_work_order = 0`.
-
