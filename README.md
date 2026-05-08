@@ -22,6 +22,7 @@ awamir-plus/
     API_OVERVIEW.md
     MVP_TEST_SCENARIO.md
     PILOT_TEST_REPORT.md
+    PRODUCTION_READINESS.md
     DEPLOY_DOCKER.md
     INSTALL_DOCKER.md
     API.md
@@ -71,6 +72,26 @@ Run local Python checks:
 python3 -m compileall backend/awamir_plus/awamir_plus
 ```
 
+Repeatable Docker deployment for the current pilot server:
+
+```bash
+CONTAINER=docker-frappe-1 \
+SITE=hrms.localhost \
+BRANCH=main \
+RUN_MIGRATE=0 \
+bash scripts/deploy_backend_docker.sh
+```
+
+Set `RUN_MIGRATE=1` only when DocTypes, fixtures, patches, or schema files changed.
+
+## Quality Gates
+
+Run the same checks used by CI:
+
+```bash
+bash scripts/run_quality_checks.sh
+```
+
 ## Pilot Release
 
 The current pilot release notes are documented in [Awamir Plus Pilot Release v0.1](docs/RELEASE_V0_1.md).
@@ -80,6 +101,8 @@ The real-device pilot checklist is documented in [Device Pilot Runbook](docs/DEV
 The expanded operations workflow progress for v0.2 is tracked in [v0.2 Operations Workflow Progress](docs/V0_2_OPERATIONS_WORKFLOW_PROGRESS.md).
 
 Deployment and smoke-test steps for v0.2 are documented in [v0.2 Deployment Checklist](docs/V0_2_DEPLOYMENT_CHECKLIST.md).
+
+Production readiness gates are documented in [Production Readiness](docs/PRODUCTION_READINESS.md).
 
 ## MVP Accounting Notes
 
@@ -118,6 +141,7 @@ Real ERPNext demo users are created by the seed script and use the configured de
 - [API Overview](docs/API_OVERVIEW.md)
 - [MVP Test Scenario](docs/MVP_TEST_SCENARIO.md)
 - [Pilot Test Report](docs/PILOT_TEST_REPORT.md)
+- [Production Readiness](docs/PRODUCTION_READINESS.md)
 - [Docker Deployment](docs/DEPLOY_DOCKER.md)
 - [Project Plan](docs/PROJECT_PLAN.md)
 

@@ -45,7 +45,19 @@ bench restart
 
 ## Update Existing App
 
-After copying changed files into `apps/awamir_plus`:
+Preferred repeatable deployment from this repository:
+
+```bash
+CONTAINER=docker-frappe-1 \
+SITE=hrms.localhost \
+BRANCH=main \
+RUN_MIGRATE=0 \
+bash scripts/deploy_backend_docker.sh
+```
+
+Use `RUN_MIGRATE=1` only when DocTypes, fixtures, patches, or schema-related files changed.
+
+Manual fallback after copying changed files into `apps/awamir_plus`:
 
 ```bash
 cd ~/frappe-bench

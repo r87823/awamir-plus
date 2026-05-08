@@ -43,6 +43,8 @@ GET /api/method/awamir_plus.api.auth.get_current_user
 
 لا تضع API Key أو API Secret داخل تطبيق Flutter.
 
+يمكن استخدام `.env.example` كمرجع غير سري لإعدادات التشغيل. لا تحفظ أي كلمات مرور، API Keys، ملفات توقيع، أو ملفات بيئة حقيقية داخل المستودع.
+
 ## التحقق
 
 ```bash

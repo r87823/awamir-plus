@@ -11,6 +11,7 @@
 .env
 .env.*
 !.env.example
+!**/.env.example
 *.pem
 *.key
 *.crt
@@ -25,6 +26,7 @@ credentials/
 **/common_site_config.json
 **/*secret*
 **/*credentials*
+!scripts/verify_no_secrets.sh
 
 # Flutter / Dart
 **/.dart_tool/
