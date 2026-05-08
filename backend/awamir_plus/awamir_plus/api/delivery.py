@@ -4,6 +4,11 @@ from frappe import _
 from awamir_plus.constants import (
     CLOSURE_STATUS_OPEN,
     CLOSURE_STATUS_RETURNED,
+    DELIVERY_BATCH_STATUS_DELIVERED,
+    DELIVERY_BATCH_STATUS_OUT_FOR_DELIVERY,
+    DELIVERY_BATCH_STATUS_PARTIALLY_DELIVERED,
+    DELIVERY_BATCH_STATUS_PICKED_UP,
+    DELIVERY_BATCH_STATUS_RETURNED,
     DELIVERY_FLOW_STATUS_DELIVERED,
     DELIVERY_FLOW_STATUS_OUT_FOR_DELIVERY,
     DELIVERY_FLOW_STATUS_PICKED_UP,
@@ -448,7 +453,28 @@ def _sync_delivery_batch_order_status(order_doc):
                 batch_order.status = order_doc.status
                 changed = True
         if changed:
+            _sync_batch_status(batch)
             batch.save(ignore_permissions=True)
+
+
+def _sync_batch_status(batch):
+    statuses = {row.status for row in batch.orders}
+    if not statuses:
+        return
+    if statuses == {ORDER_STATUS_DELIVERED}:
+        batch.status = DELIVERY_BATCH_STATUS_DELIVERED
+        batch.delivered_at = batch.delivered_at or now()
+    elif statuses == {ORDER_STATUS_DELIVERY_FAILED}:
+        batch.status = DELIVERY_BATCH_STATUS_RETURNED
+        batch.returned_at = batch.returned_at or now()
+    elif ORDER_STATUS_DELIVERED in statuses or ORDER_STATUS_DELIVERY_FAILED in statuses:
+        batch.status = DELIVERY_BATCH_STATUS_PARTIALLY_DELIVERED
+    elif ORDER_STATUS_OUT_FOR_DELIVERY in statuses:
+        batch.status = DELIVERY_BATCH_STATUS_OUT_FOR_DELIVERY
+        batch.out_for_delivery_at = batch.out_for_delivery_at or now()
+    elif ORDER_STATUS_DRIVER_PICKED_UP in statuses:
+        batch.status = DELIVERY_BATCH_STATUS_PICKED_UP
+        batch.picked_up_at = batch.picked_up_at or now()
 
 
 def _ensure_payment_scope(doc):

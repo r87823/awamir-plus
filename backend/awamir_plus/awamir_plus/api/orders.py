@@ -499,12 +499,16 @@ def get_order_detail(order):
             filters={"order": doc.name},
             pluck="parent",
         )
-        data["delivery_batches"] = frappe.get_all(
-            "Awamir Delivery Batch",
-            filters={"name": ["in", batch_names]},
-            fields=["*"],
-            order_by="modified desc",
-        ) if batch_names else []
+        if batch_names:
+            from awamir_plus.services.delivery_batch import delivery_batch_response
+
+            data["delivery_batches"] = [
+                delivery_batch_response(batch_name)
+                for batch_name in batch_names
+            ]
+            data["delivery_batches"].sort(key=lambda row: row.modified, reverse=True)
+        else:
+            data["delivery_batches"] = []
     else:
         data["delivery_batches"] = []
     return data
