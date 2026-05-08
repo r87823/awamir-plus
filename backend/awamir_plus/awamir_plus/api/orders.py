@@ -20,6 +20,7 @@ from awamir_plus.constants import (
     PERMISSION_ORDER_VIEW_BRANCH,
     PERMISSION_ORDER_VIEW_OWN,
     PERMISSION_WORK_ORDER_VIEW_DEPARTMENT,
+    PAYMENT_STATUS_IN_DAILY_CLOSURE,
     ROLE_BRANCH_SUPERVISOR,
 )
 from awamir_plus.permissions import (
@@ -372,6 +373,9 @@ def _make_item(item):
 
 
 def _record_deposit(order, amount, data):
+    from awamir_plus.api.delivery import _get_or_create_open_cash_closure, _recalculate_closure_totals
+
+    cash_closure = _get_or_create_open_cash_closure(frappe.session.user, "branch_employee")
     frappe.get_doc(
         {
             "doctype": "Awamir Order Payment",
@@ -383,10 +387,13 @@ def _record_deposit(order, amount, data):
             "receipt_attachment": data.get("receipt_attachment"),
             "received_by_user": frappe.session.user,
             "received_by_role": "branch_employee",
-            "status": PAYMENT_STATUS_RECORDED,
+            "cash_closure": cash_closure,
+            "status": PAYMENT_STATUS_IN_DAILY_CLOSURE if cash_closure else PAYMENT_STATUS_RECORDED,
             "created_at": now_datetime(),
         }
     ).insert(ignore_permissions=True)
+    if cash_closure:
+        _recalculate_closure_totals(cash_closure)
 
 
 def _get_branch_supervisors():
