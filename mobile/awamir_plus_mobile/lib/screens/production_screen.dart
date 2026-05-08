@@ -529,6 +529,44 @@ class _DepartmentWorkOrdersSection extends StatelessWidget {
                           label: 'سبب الرفض',
                           value: workOrder.rejectionReason,
                         ),
+                      if (workOrder.departmentDailyCapacity > 0)
+                        _CompactRow(
+                          label: 'الطاقة اليومية',
+                          value:
+                              '${workOrder.departmentOpenWorkOrdersCount}/${workOrder.departmentDailyCapacity}',
+                        ),
+                      if (workOrder.hasCapacityWarning) ...[
+                        const SizedBox(height: 8),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFF3E0),
+                            borderRadius: BorderRadius.circular(AppRadius.sm),
+                            border: Border.all(color: const Color(0xFFFFB74D)),
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Icon(
+                                Icons.warning_amber_rounded,
+                                color: Color(0xFFE65100),
+                                size: 20,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  workOrder.capacityWarning,
+                                  style: const TextStyle(
+                                    color: Color(0xFFE65100),
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 8),
                       Wrap(
                         spacing: 8,

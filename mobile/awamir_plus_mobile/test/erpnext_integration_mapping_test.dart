@@ -570,6 +570,9 @@ void main() {
       expect(sentBody['fallback_department'], 'PD-SWEETS');
       expect(workOrders.single.id, 'DWO-0001');
       expect(workOrders.single.status, DepartmentWorkOrderStatus.pending);
+      expect(workOrders.single.departmentDailyCapacity, 1);
+      expect(workOrders.single.departmentOpenWorkOrdersCount, 2);
+      expect(workOrders.single.capacityWarning, contains('capacity'));
       expect(workOrders.single.items.single.itemCode, 'AWAMIR-KUNAFA');
     },
   );
@@ -1743,6 +1746,9 @@ Map<String, dynamic> _departmentWorkOrderPayload({String status = 'pending'}) {
     'status': status,
     'priority': 'Normal',
     'created_by': 'distribution@example.com',
+    'department_daily_capacity': 1,
+    'department_open_work_orders_count': 2,
+    'capacity_warning': 'Department capacity exceeded: 2/1 open work orders.',
     'items': [
       {
         'item_code': 'AWAMIR-KUNAFA',

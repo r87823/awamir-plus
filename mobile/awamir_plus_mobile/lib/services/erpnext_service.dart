@@ -1396,6 +1396,13 @@ class ErpnextService implements AuthService {
       rejectedAt: _nullableDateTime(_string(data['rejected_at'])),
       delayReason: _string(data['delay_reason']),
       rejectionReason: _string(data['rejection_reason']),
+      departmentDailyCapacity: _number(
+        data['department_daily_capacity'],
+      ).toInt(),
+      departmentOpenWorkOrdersCount: _number(
+        data['department_open_work_orders_count'],
+      ).toInt(),
+      capacityWarning: _string(data['capacity_warning']),
       items: _asList(
         data['items'],
       ).map((item) => _mapDepartmentWorkOrderItem(_asMap(item))).toList(),

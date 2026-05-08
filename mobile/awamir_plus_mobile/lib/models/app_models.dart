@@ -1508,6 +1508,9 @@ class DepartmentWorkOrder {
     this.rejectedAt,
     this.delayReason = '',
     this.rejectionReason = '',
+    this.departmentDailyCapacity = 0,
+    this.departmentOpenWorkOrdersCount = 0,
+    this.capacityWarning = '',
   });
 
   final String id;
@@ -1525,6 +1528,11 @@ class DepartmentWorkOrder {
   final DateTime? rejectedAt;
   final String delayReason;
   final String rejectionReason;
+  final int departmentDailyCapacity;
+  final int departmentOpenWorkOrdersCount;
+  final String capacityWarning;
+
+  bool get hasCapacityWarning => capacityWarning.trim().isNotEmpty;
 }
 
 class DeliveryBatchOrder {
