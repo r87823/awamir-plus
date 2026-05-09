@@ -1062,9 +1062,20 @@ class ErpnextService implements AuthService {
     CreateOrderRequest request,
     bool submitForApproval,
   ) {
+    if (request.isEditing) {
+      return {
+        'order': request.editingOrderId.trim(),
+        'submit_for_approval': submitForApproval,
+        'items': request.lineItems.map(_linePayload).toList(),
+        'required_date': _dateKey(request.pickupDate),
+        'required_time': _timeKey(request.pickupTime),
+        'order_notes': request.orderDetails.trim(),
+        'customer_notes': request.customerNotes.trim(),
+      };
+    }
+
     final delivery = request.deliveryDetails;
     return {
-      if (request.isEditing) 'order': request.editingOrderId.trim(),
       'submit_for_approval': submitForApproval,
       'customer': request.existingCustomer?.id,
       'customer_phone': normalizePhoneInput(request.customerPhone),

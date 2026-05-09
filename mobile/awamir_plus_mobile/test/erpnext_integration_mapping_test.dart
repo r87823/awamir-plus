@@ -264,6 +264,15 @@ void main() {
 
     expect(orderData['order'], 'ORD-2026-00011');
     expect(orderData['submit_for_approval'], isFalse);
+    expect(orderData['items'], isA<List<dynamic>>());
+    expect(orderData['required_date'], '2026-05-10');
+    expect(orderData['required_time'], '18:30:00');
+    expect(orderData['order_notes'], 'تفاصيل طلب اختبار');
+    expect(orderData['customer_notes'], 'ملاحظات العميل');
+    expect(orderData.containsKey('customer_phone'), isFalse);
+    expect(orderData.containsKey('deposit_amount'), isFalse);
+    expect(orderData.containsKey('payment_method'), isFalse);
+    expect(orderData.containsKey('delivery_type'), isFalse);
   });
 
   test(

@@ -207,86 +207,36 @@ def _submit_existing_order_for_approval(order):
 
 def _update_order(order, order_data, status):
     require_permissions(PERMISSION_ORDER_EDIT_DRAFT)
-    data = order_data if isinstance(order_data, dict) else parse_json(order_data, {})
+    payload = order_data if isinstance(order_data, dict) else parse_json(order_data, {})
     doc = frappe.get_doc("Awamir Order Request", order)
     _assert_editable_draft(doc)
 
-    data["customer_phone"] = normalize_phone_input(data.get("customer_phone"))
+    data = _draft_edit_data(doc, payload)
     items = data.get("items") or []
     assert_required(items, "At least one item is required.")
-    assert_required(data.get("customer_phone"), "Customer phone is required.")
     assert_required(data.get("required_date"), "Required date is required.")
     assert_required(data.get("required_time"), "Required time is required.")
-
-    requested_branch = data.get("created_branch") or doc.created_branch
-    user_branch = get_user_branch()
-    branch = requested_branch or user_branch
-    if not is_awamir_admin() and user_branch and requested_branch and requested_branch != user_branch:
-        frappe.throw(_("Created branch must match your branch."))
-    assert_required(branch, "Created branch is required.")
 
     required_date = getdate(data.get("required_date"))
     if required_date < getdate():
         frappe.throw(_("Required date cannot be in the past."))
 
-    delivery_type = data.get("delivery_type") or "Pickup"
-    pickup_branch = data.get("pickup_branch") or (branch if delivery_type == "Pickup" else None)
-    if delivery_type == "Delivery" and not (data.get("delivery_address") or data.get("delivery_location_url")):
-        frappe.throw(_("Delivery address or location URL is required."))
-
-    customer = _get_or_create_customer(data)
-    if customer and not data.get("customer_name"):
-        data["customer_name"] = frappe.db.get_value("Customer", customer, "customer_name")
-
-    coordinates = extract_coordinates_from_google_maps_url(data.get("delivery_location_url"))
-    latitude = data.get("latitude") or (coordinates or {}).get("latitude")
-    longitude = data.get("longitude") or (coordinates or {}).get("longitude")
     total_amount = sum(to_float(item.get("amount")) or to_float(item.get("qty")) * to_float(item.get("rate")) for item in items)
-    delivery_fee = to_float(data.get("delivery_fee"))
-    deposit_amount = to_float(data.get("deposit_amount"))
+    delivery_fee = to_float(doc.delivery_fee)
+    deposit_amount = to_float(doc.deposit_amount)
     if deposit_amount > total_amount + delivery_fee:
         frappe.throw(_("Deposit cannot exceed order total plus delivery fee."))
 
     old_status = doc.status
-    doc.customer = customer
-    doc.customer_name = data.get("customer_name")
-    doc.customer_phone = data.get("customer_phone")
-    doc.customer_type = data.get("customer_type") or "Individual"
-    doc.company_name = data.get("company_name")
-    doc.tax_id = data.get("tax_id")
-    doc.company_address = data.get("company_address")
-    doc.company_email = data.get("company_email")
-    doc.contact_person = data.get("contact_person")
-    doc.created_branch = branch
-    doc.pickup_branch = pickup_branch
-    doc.delivery_type = delivery_type
-    doc.delivery_address = data.get("delivery_address")
-    doc.delivery_location_url = data.get("delivery_location_url")
-    doc.latitude = latitude
-    doc.longitude = longitude
-    doc.delivery_notes = data.get("delivery_notes")
-    doc.delivery_fee = delivery_fee
-    doc.priority = data.get("priority") or doc.priority or "normal"
-    doc.scheduled_at = data.get("scheduled_at")
     doc.required_date = data.get("required_date")
     doc.required_time = data.get("required_time")
     doc.pickup_time = data.get("pickup_time")
-    doc.delivery_window_start = data.get("delivery_window_start")
-    doc.delivery_window_end = data.get("delivery_window_end")
-    doc.order_notes = data.get("order_notes") or data.get("order_details")
+    doc.order_notes = data.get("order_notes")
     doc.customer_notes = data.get("customer_notes")
     doc.status = status
     doc.total_amount = total_amount
-    doc.deposit_amount = deposit_amount
     doc.remaining_amount = total_amount + delivery_fee - deposit_amount
     doc.set("items", [_make_item(item) for item in items])
-    doc.save(ignore_permissions=True)
-
-    if delivery_type == "Delivery":
-        _ensure_customer_address(customer, data, latitude, longitude)
-
-    _sync_deposit_payment(doc, deposit_amount, data)
-    doc.reload()
     doc.save(ignore_permissions=True)
 
     if old_status != doc.status:
@@ -317,10 +267,22 @@ def _update_order(order, order_data, status):
         reference_doctype="Awamir Order Request",
         reference_name=doc.name,
         method="_update_order",
-        payload=data,
+        payload=payload,
         response=response,
     )
     return response
+
+
+def _draft_edit_data(doc, payload):
+    data = payload if isinstance(payload, dict) else {}
+    return {
+        "items": data.get("items") or [item.as_dict() for item in doc.items],
+        "required_date": data.get("required_date") or doc.required_date,
+        "required_time": data.get("required_time") or doc.required_time,
+        "pickup_time": data.get("pickup_time") or doc.pickup_time,
+        "order_notes": data.get("order_notes") if "order_notes" in data else doc.order_notes,
+        "customer_notes": data.get("customer_notes") if "customer_notes" in data else doc.customer_notes,
+    }
 
 
 def _assert_editable_draft(doc):

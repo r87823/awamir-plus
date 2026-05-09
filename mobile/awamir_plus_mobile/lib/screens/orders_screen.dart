@@ -7,7 +7,7 @@ import '../models/app_models.dart';
 import '../widgets/app_header.dart';
 import '../widgets/order_card.dart';
 import '../widgets/state_views.dart';
-import 'new_order_screen.dart';
+import 'edit_draft_order_screen.dart';
 import 'order_detail_screen.dart';
 
 class OrdersScreen extends StatefulWidget {
@@ -141,11 +141,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
   Future<void> _editDraft(Order order) async {
     await Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => NewOrderScreen(
-          controller: widget.controller,
-          existingOrder: order,
-          onFinished: () => Navigator.of(context).pop(),
-        ),
+        builder: (_) =>
+            EditDraftOrderScreen(controller: widget.controller, order: order),
       ),
     );
     if (!mounted) return;
