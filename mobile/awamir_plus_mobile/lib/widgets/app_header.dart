@@ -33,7 +33,7 @@ class AppHeader extends StatelessWidget {
     const headerRadius = Radius.circular(28);
     final headerHeight = compact ? 92.0 : 124.0;
     final horizontalPadding = compact ? 16.0 : 20.0;
-    final bottomPadding = compact ? 16.0 : 24.0;
+    final bottomPadding = compact ? 8.0 : 6.0;
 
     return ClipRRect(
       borderRadius: const BorderRadius.vertical(bottom: headerRadius),

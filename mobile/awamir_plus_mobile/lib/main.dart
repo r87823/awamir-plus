@@ -149,7 +149,7 @@ class _HomeShellState extends State<HomeShell> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      extendBody: true,
+      extendBody: false,
       body: AnimatedBuilder(
         animation: _controller,
         builder: (context, _) {
@@ -311,72 +311,118 @@ class _BottomNav extends StatelessWidget {
     final sideItems = hasCreateOrder
         ? features.where((item) => item != AppFeature.createOrder).toList()
         : features;
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
+    final height = 118.0 + bottomInset;
+    final itemBottom = bottomInset > 0 ? bottomInset + 8.0 : 10.0;
 
-    return SafeArea(
-      top: false,
-      child: SizedBox(
-        height: 96,
-        child: Stack(
-          clipBehavior: Clip.none,
-          alignment: Alignment.bottomCenter,
-          children: [
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: Container(
-                height: 78,
-                decoration: BoxDecoration(
-                  color: AppColors.white,
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(28),
+    return SizedBox(
+      height: height,
+      child: Stack(
+        clipBehavior: Clip.none,
+        alignment: Alignment.bottomCenter,
+        children: [
+          Positioned.fill(
+            child: CustomPaint(
+              painter: _BottomNavBarPainter(showNotch: hasCreateOrder),
+            ),
+          ),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: itemBottom,
+            child: Row(
+              children: [
+                for (var index = 0; index < sideItems.length; index++) ...[
+                  if (hasCreateOrder && index == 2)
+                    const Expanded(child: SizedBox(height: 74)),
+                  Expanded(
+                    child: _BottomNavItem(
+                      item: sideItems[index],
+                      selected: selectedFeature == sideItems[index],
+                      badge: sideItems[index] == AppFeature.notifications
+                          ? notificationCount
+                          : 0,
+                      onTap: () => onChanged(sideItems[index]),
+                    ),
                   ),
-                  border: Border.all(color: AppColors.creamDark),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.09),
-                      blurRadius: 22,
-                      offset: const Offset(0, -6),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 4,
-              child: Row(
-                children: [
-                  for (var index = 0; index < sideItems.length; index++) ...[
-                    if (hasCreateOrder && index == 2)
-                      const Expanded(child: SizedBox(height: 70)),
-                    Expanded(
-                      child: _BottomNavItem(
-                        item: sideItems[index],
-                        selected: selectedFeature == sideItems[index],
-                        badge: sideItems[index] == AppFeature.notifications
-                            ? notificationCount
-                            : 0,
-                        onTap: () => onChanged(sideItems[index]),
-                      ),
-                    ),
-                  ],
                 ],
+              ],
+            ),
+          ),
+          if (hasCreateOrder)
+            Positioned(
+              top: 0,
+              child: _CreateOrderNavButton(
+                selected: selectedFeature == AppFeature.createOrder,
+                onTap: () => onChanged(AppFeature.createOrder),
               ),
             ),
-            if (hasCreateOrder)
-              Positioned(
-                top: 0,
-                child: _CreateOrderNavButton(
-                  selected: selectedFeature == AppFeature.createOrder,
-                  onTap: () => onChanged(AppFeature.createOrder),
-                ),
-              ),
-          ],
-        ),
+        ],
       ),
     );
+  }
+}
+
+class _BottomNavBarPainter extends CustomPainter {
+  const _BottomNavBarPainter({required this.showNotch});
+
+  final bool showNotch;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const top = 38.0;
+    const cornerRadius = 38.0;
+    const notchHalfWidth = 106.0;
+    const notchBottom = 95.0;
+
+    final centerX = size.width / 2;
+    final path = Path()
+      ..moveTo(0, size.height)
+      ..lineTo(0, top + cornerRadius)
+      ..quadraticBezierTo(0, top, cornerRadius, top);
+
+    if (showNotch) {
+      path
+        ..lineTo(centerX - notchHalfWidth, top)
+        ..cubicTo(
+          centerX - 78,
+          top,
+          centerX - 74,
+          notchBottom,
+          centerX,
+          notchBottom,
+        )
+        ..cubicTo(
+          centerX + 74,
+          notchBottom,
+          centerX + 78,
+          top,
+          centerX + notchHalfWidth,
+          top,
+        );
+    }
+
+    path
+      ..lineTo(size.width - cornerRadius, top)
+      ..quadraticBezierTo(size.width, top, size.width, top + cornerRadius)
+      ..lineTo(size.width, size.height)
+      ..close();
+
+    canvas.drawShadow(path, Colors.black.withValues(alpha: 0.18), 18, true);
+
+    final fillPaint = Paint()..color = AppColors.white;
+    canvas.drawPath(path, fillPaint);
+
+    final borderPaint = Paint()
+      ..color = AppColors.creamDark
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+    canvas.drawPath(path, borderPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _BottomNavBarPainter oldDelegate) {
+    return showNotch != oldDelegate.showNotch;
   }
 }
 
@@ -420,36 +466,27 @@ class _CreateOrderNavButton extends StatelessWidget {
       children: [
         InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(34),
+          borderRadius: BorderRadius.circular(44),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 180),
-            width: 68,
-            height: 68,
+            width: 84,
+            height: 84,
             decoration: BoxDecoration(
-              color: selected ? AppColors.goldDark : AppColors.navyDark,
+              color: Colors.black,
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.18),
-                  blurRadius: 18,
-                  offset: const Offset(0, 8),
+                  color: Colors.black.withValues(alpha: selected ? 0.26 : 0.2),
+                  blurRadius: selected ? 26 : 22,
+                  offset: const Offset(0, 10),
                 ),
               ],
             ),
             child: const Icon(
               Icons.add_rounded,
               color: AppColors.white,
-              size: 34,
+              size: 44,
             ),
-          ),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          AppFeature.createOrder.label,
-          style: TextStyle(
-            color: selected ? AppColors.navy : AppColors.textMuted,
-            fontSize: 11,
-            fontWeight: FontWeight.w900,
           ),
         ),
       ],
@@ -475,26 +512,10 @@ class _BottomNavItem extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: SizedBox(
-        height: 70,
+        height: 74,
         child: Stack(
           alignment: Alignment.center,
           children: [
-            if (selected)
-              const Positioned(
-                top: 0,
-                child: SizedBox(
-                  width: 32,
-                  height: 4,
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: AppColors.gold,
-                      borderRadius: BorderRadius.vertical(
-                        bottom: Radius.circular(4),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
             Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -503,8 +524,8 @@ class _BottomNavItem extends StatelessWidget {
                   children: [
                     Icon(
                       item.icon,
-                      color: selected ? AppColors.navy : AppColors.textMuted,
-                      size: 27,
+                      color: selected ? Colors.black : const Color(0xFF8B96A3),
+                      size: 30,
                     ),
                     if (badge > 0)
                       Positioned(
@@ -540,8 +561,8 @@ class _BottomNavItem extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: selected ? AppColors.navy : AppColors.textMuted,
-                    fontSize: 11,
+                    color: selected ? Colors.black : const Color(0xFF8B96A3),
+                    fontSize: 12,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
