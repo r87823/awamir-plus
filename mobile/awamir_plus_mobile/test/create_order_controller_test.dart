@@ -15,9 +15,34 @@ void main() {
 
     await controller.selectDepartment(controller.departments.first);
 
-    expect(controller.currentStep, CreateOrderStep.products);
+    expect(controller.currentStep, CreateOrderStep.category);
     expect(controller.nextStep(), isFalse);
     expect(controller.validationMessage, 'اختر منتجاً واحداً على الأقل');
+  });
+
+  test('يمكن اختيار منتجات من أكثر من قسم في نفس شاشة المنتجات', () async {
+    final controller = await _createController();
+    addTearDown(controller.dispose);
+
+    await controller.selectDepartment(controller.departments.first);
+    final firstDepartmentProduct = controller.products.first;
+    controller.changeProductQuantity(firstDepartmentProduct, 1);
+
+    await controller.selectDepartment(controller.departments[1]);
+    final secondDepartmentProduct = controller.products.first;
+    controller.changeProductQuantity(secondDepartmentProduct, 1);
+
+    expect(controller.currentStep, CreateOrderStep.category);
+    expect(controller.request.lineItems, hasLength(2));
+    expect(
+      controller.request.lineItems.map((line) => line.product.departmentId),
+      containsAll([
+        firstDepartmentProduct.departmentId,
+        secondDepartmentProduct.departmentId,
+      ]),
+    );
+    expect(controller.nextStep(), isTrue);
+    expect(controller.currentStep, CreateOrderStep.customer);
   });
 
   test('لا يمكن إدخال عربون أكبر من إجمالي الطلب', () async {

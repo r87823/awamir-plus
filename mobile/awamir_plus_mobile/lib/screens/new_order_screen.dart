@@ -155,9 +155,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
   Widget _buildCurrentStep() {
     switch (_flow.currentStep) {
       case CreateOrderStep.category:
-        return _buildCategoryStep();
-      case CreateOrderStep.products:
-        return _buildProductsStep();
+        return _buildCatalogStep();
       case CreateOrderStep.customer:
         return _buildCustomerStep();
       case CreateOrderStep.details:
@@ -173,18 +171,18 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
     }
   }
 
-  Widget _buildCategoryStep() {
+  Widget _buildCatalogStep() {
     if (_flow.loadState.isLoading) {
       return const _StepCard(
-        title: 'نوع الطلب / القسم',
-        icon: Icons.category_outlined,
+        title: 'اختيار المنتجات',
+        icon: Icons.inventory_2_outlined,
         child: SizedBox(height: 220, child: LoadingStateView()),
       );
     }
     if (_flow.loadState.isError) {
       return _StepCard(
-        title: 'نوع الطلب / القسم',
-        icon: Icons.category_outlined,
+        title: 'اختيار المنتجات',
+        icon: Icons.inventory_2_outlined,
         child: SizedBox(
           height: 240,
           child: ErrorStateView(
@@ -196,8 +194,8 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
     }
     if (_flow.departments.isEmpty) {
       return const _StepCard(
-        title: 'نوع الطلب / القسم',
-        icon: Icons.category_outlined,
+        title: 'اختيار المنتجات',
+        icon: Icons.inventory_2_outlined,
         child: SizedBox(
           height: 220,
           child: EmptyStateView(message: 'لا توجد أقسام متاحة'),
@@ -206,37 +204,42 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
     }
 
     return _StepCard(
-      title: 'نوع الطلب / القسم',
-      icon: Icons.category_outlined,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final crossAxisCount = constraints.maxWidth > 620 ? 3 : 2;
-          return GridView.count(
-            crossAxisCount: crossAxisCount,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisSpacing: 10,
-            mainAxisSpacing: 10,
-            childAspectRatio: 1.18,
-            children: _flow.departments.map((department) {
-              return _DepartmentCard(
-                department: department,
-                selected: _flow.request.department?.id == department.id,
-                onTap: () => _flow.selectDepartment(department),
-              );
-            }).toList(),
-          );
-        },
+      title: 'اختيار المنتجات',
+      icon: Icons.inventory_2_outlined,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _DepartmentTabs(
+            departments: _flow.departments,
+            selected: _flow.request.department,
+            onSelect: _flow.selectDepartment,
+          ),
+          const SizedBox(height: 14),
+          TextField(
+            onChanged: _flow.updateSearch,
+            decoration: const InputDecoration(
+              labelText: 'البحث في المنتجات',
+              prefixIcon: Icon(Icons.search),
+            ),
+          ),
+          const SizedBox(height: 14),
+          _buildProductsContent(),
+          const SizedBox(height: 14),
+          _TotalStrip(
+            itemsCount: _flow.request.itemsCount,
+            total: _flow.request.productsTotal,
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildProductsStep() {
-    Widget content;
+  Widget _buildProductsContent() {
     if (_flow.productsState.isLoading) {
-      content = const SizedBox(height: 260, child: LoadingStateView());
-    } else if (_flow.productsState.isError) {
-      content = SizedBox(
+      return const SizedBox(height: 260, child: LoadingStateView());
+    }
+    if (_flow.productsState.isError) {
+      return SizedBox(
         height: 260,
         child: ErrorStateView(
           message: _flow.productsState.message ?? 'تعذر تحميل المنتجات',
@@ -246,63 +249,38 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
           },
         ),
       );
-    } else {
-      final products = _flow.filteredProducts;
-      content = Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          TextField(
-            onChanged: _flow.updateSearch,
-            decoration: const InputDecoration(
-              labelText: 'البحث في المنتجات',
-              prefixIcon: Icon(Icons.search),
-            ),
-          ),
-          const SizedBox(height: 14),
-          if (products.isEmpty)
-            const SizedBox(
-              height: 220,
-              child: EmptyStateView(message: 'لا توجد منتجات في هذا القسم'),
-            )
-          else
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final crossAxisCount = constraints.maxWidth > 680 ? 3 : 2;
-                return GridView.count(
-                  crossAxisCount: crossAxisCount,
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  crossAxisSpacing: 10,
-                  mainAxisSpacing: 10,
-                  childAspectRatio: 0.68,
-                  children: products.map((product) {
-                    final quantity = _flow.request.quantityFor(product);
-                    return ProductCard(
-                      product: product,
-                      quantity: quantity,
-                      onAdd: () => _flow.changeProductQuantity(product, 1),
-                      onIncrement: () =>
-                          _flow.changeProductQuantity(product, 1),
-                      onDecrement: () =>
-                          _flow.changeProductQuantity(product, -1),
-                    );
-                  }).toList(),
-                );
-              },
-            ),
-          const SizedBox(height: 14),
-          _TotalStrip(
-            itemsCount: _flow.request.itemsCount,
-            total: _flow.request.productsTotal,
-          ),
-        ],
+    }
+
+    final products = _flow.filteredProducts;
+    if (products.isEmpty) {
+      return const SizedBox(
+        height: 220,
+        child: EmptyStateView(message: 'لا توجد منتجات في هذا القسم'),
       );
     }
 
-    return _StepCard(
-      title: 'اختيار المنتجات',
-      icon: Icons.inventory_2_outlined,
-      child: content,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final crossAxisCount = constraints.maxWidth > 680 ? 3 : 2;
+        return GridView.count(
+          crossAxisCount: crossAxisCount,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          crossAxisSpacing: 10,
+          mainAxisSpacing: 10,
+          childAspectRatio: 0.68,
+          children: products.map((product) {
+            final quantity = _flow.request.quantityFor(product);
+            return ProductCard(
+              product: product,
+              quantity: quantity,
+              onAdd: () => _flow.changeProductQuantity(product, 1),
+              onIncrement: () => _flow.changeProductQuantity(product, 1),
+              onDecrement: () => _flow.changeProductQuantity(product, -1),
+            );
+          }).toList(),
+        );
+      },
     );
   }
 
@@ -1134,8 +1112,41 @@ class _StepCard extends StatelessWidget {
   }
 }
 
-class _DepartmentCard extends StatelessWidget {
-  const _DepartmentCard({
+class _DepartmentTabs extends StatelessWidget {
+  const _DepartmentTabs({
+    required this.departments,
+    required this.selected,
+    required this.onSelect,
+  });
+
+  final List<ProductDepartment> departments;
+  final ProductDepartment? selected;
+  final ValueChanged<ProductDepartment> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 54,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: EdgeInsets.zero,
+        itemBuilder: (context, index) {
+          final department = departments[index];
+          return _DepartmentChip(
+            department: department,
+            selected: selected?.id == department.id,
+            onTap: () => onSelect(department),
+          );
+        },
+        separatorBuilder: (_, _) => const SizedBox(width: 10),
+        itemCount: departments.length,
+      ),
+    );
+  }
+}
+
+class _DepartmentChip extends StatelessWidget {
+  const _DepartmentChip({
     required this.department,
     required this.selected,
     required this.onTap,
@@ -1152,27 +1163,33 @@ class _DepartmentCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(AppRadius.sm),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.all(12),
+        constraints: const BoxConstraints(minWidth: 118),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
-          color: selected ? const Color(0xFFFFFDE7) : AppColors.cream,
+          color: selected ? const Color(0xFFE7FBFF) : AppColors.white,
           borderRadius: BorderRadius.circular(AppRadius.sm),
           border: Border.all(
-            color: selected ? AppColors.gold : AppColors.creamDark,
+            color: selected ? AppColors.navy : AppColors.creamDark,
             width: selected ? 2 : 1,
           ),
+          boxShadow: selected ? AppShadows.soft : null,
         ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(department.icon, color: AppColors.navy, size: 32),
-            const SizedBox(height: 10),
+            Icon(
+              department.icon,
+              color: selected ? AppColors.navy : AppColors.textMuted,
+              size: 20,
+            ),
+            const SizedBox(width: 8),
             Text(
               department.name,
-              textAlign: TextAlign.center,
-              maxLines: 2,
+              maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: AppColors.navy,
+              style: TextStyle(
+                color: selected ? AppColors.navy : AppColors.textMuted,
+                fontSize: 14,
                 fontWeight: FontWeight.w900,
               ),
             ),

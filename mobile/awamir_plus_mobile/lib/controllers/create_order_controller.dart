@@ -13,7 +13,6 @@ import '../repositories/product_repository.dart';
 
 enum CreateOrderStep {
   category,
-  products,
   customer,
   details,
   attachments,
@@ -26,8 +25,6 @@ extension CreateOrderStepDetails on CreateOrderStep {
   String get label {
     switch (this) {
       case CreateOrderStep.category:
-        return 'القسم';
-      case CreateOrderStep.products:
         return 'المنتجات';
       case CreateOrderStep.customer:
         return 'العميل';
@@ -64,9 +61,7 @@ class CreateOrderController extends ChangeNotifier {
     ];
     if (existingOrder != null) {
       customerSearchState = ViewState.success(request.existingCustomer);
-      currentStep = request.department == null
-          ? CreateOrderStep.category
-          : CreateOrderStep.products;
+      currentStep = CreateOrderStep.category;
     }
     loadCategories();
   }
@@ -122,6 +117,8 @@ class CreateOrderController extends ChangeNotifier {
           : const ViewState.success(null);
       if (request.department != null) {
         unawaited(_hydrateExistingDraftContext());
+      } else if (departments.isNotEmpty) {
+        unawaited(selectDepartment(departments.first));
       }
     } on AppException catch (error) {
       loadState = ViewState.error(error.message);
@@ -133,8 +130,8 @@ class CreateOrderController extends ChangeNotifier {
 
   Future<void> selectDepartment(ProductDepartment department) async {
     request.department = department;
-    currentStep = CreateOrderStep.products;
     validationMessage = null;
+    searchQuery = '';
     productsState = const ViewState.loading();
     products = [];
     notifyListeners();
@@ -417,8 +414,6 @@ class CreateOrderController extends ChangeNotifier {
   bool validateStep(CreateOrderStep step) {
     switch (step) {
       case CreateOrderStep.category:
-        return _validate(request.department != null, 'اختر القسم أولاً');
-      case CreateOrderStep.products:
         return _validate(request.hasProducts, 'اختر منتجاً واحداً على الأقل');
       case CreateOrderStep.customer:
         if (!_validate(
