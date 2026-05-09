@@ -29,39 +29,21 @@ class HomeScreen extends StatelessWidget {
           padding: EdgeInsets.zero,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
-              child: GridView.count(
-                crossAxisCount: 2,
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-                childAspectRatio: 1.35,
-                children: _statsForRole(),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
-              child: GridView.count(
-                crossAxisCount: 3,
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                crossAxisSpacing: 10,
-                mainAxisSpacing: 10,
-                childAspectRatio: 0.95,
-                children: controller.homeFeatures.map((feature) {
+              padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
+              child: _HomeDashboardLayout(
+                stats: _statsForRole(),
+                actions: controller.homeFeatures.map((feature) {
                   final colors = _featureColors(feature);
-                  return QuickActionCard(
-                    icon: feature.icon,
-                    label: feature.label,
-                    iconBackground: colors.$1,
-                    iconColor: colors.$2,
-                    onTap: () => onOpenFeature(feature),
+                  return (
+                    feature: feature,
+                    background: colors.$1,
+                    color: colors.$2,
                   );
                 }).toList(),
+                onOpenFeature: onOpenFeature,
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
             if (controller.canAccess(AppFeature.branchOrders)) ...[
               SectionHeader(
                 title: 'آخر الطلبات',
@@ -319,5 +301,65 @@ class HomeScreen extends StatelessWidget {
             : null,
       );
     });
+  }
+}
+
+class _HomeDashboardLayout extends StatelessWidget {
+  const _HomeDashboardLayout({
+    required this.stats,
+    required this.actions,
+    required this.onOpenFeature,
+  });
+
+  final List<Widget> stats;
+  final List<({AppFeature feature, Color background, Color color})> actions;
+  final ValueChanged<AppFeature> onOpenFeature;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const statSpacing = 12.0;
+        const actionSpacing = 10.0;
+        final statWidth = (constraints.maxWidth - statSpacing) / 2;
+        final actionWidth = (constraints.maxWidth - actionSpacing * 2) / 3;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Wrap(
+              spacing: statSpacing,
+              runSpacing: statSpacing,
+              children: stats
+                  .map(
+                    (card) =>
+                        SizedBox(width: statWidth, height: 128, child: card),
+                  )
+                  .toList(),
+            ),
+            if (actions.isNotEmpty) ...[
+              const SizedBox(height: 14),
+              Wrap(
+                spacing: actionSpacing,
+                runSpacing: actionSpacing,
+                children: actions.map((action) {
+                  return SizedBox(
+                    width: actionWidth,
+                    height: 112,
+                    child: QuickActionCard(
+                      icon: action.feature.icon,
+                      label: action.feature.label,
+                      iconBackground: action.background,
+                      iconColor: action.color,
+                      onTap: () => onOpenFeature(action.feature),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ],
+          ],
+        );
+      },
+    );
   }
 }

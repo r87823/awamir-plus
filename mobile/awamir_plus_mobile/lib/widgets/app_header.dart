@@ -30,118 +30,135 @@ class AppHeader extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.fromLTRB(
-        20,
-        compact ? 24 : 44,
-        20,
-        compact ? 20 : 28,
-      ),
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topRight,
-          end: Alignment.bottomLeft,
-          colors: [AppColors.navy, AppColors.navyDark],
+    const headerRadius = Radius.circular(28);
+    final headerHeight = compact ? 92.0 : 124.0;
+    final horizontalPadding = compact ? 16.0 : 20.0;
+    final bottomPadding = compact ? 16.0 : 24.0;
+
+    return ClipRRect(
+      borderRadius: const BorderRadius.vertical(bottom: headerRadius),
+      child: Container(
+        width: double.infinity,
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            begin: Alignment.topRight,
+            end: Alignment.bottomLeft,
+            colors: [AppColors.navy, AppColors.navyDark],
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.navyDark.withValues(alpha: 0.24),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
+            ),
+          ],
         ),
-      ),
-      child: Stack(
-        children: [
-          Positioned.fill(child: CustomPaint(painter: _HeaderPatternPainter())),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+        child: SizedBox(
+          height: headerHeight,
+          child: Stack(
             children: [
-              if (showBack)
-                Row(
+              Positioned.fill(
+                child: CustomPaint(painter: _HeaderPatternPainter()),
+              ),
+              PositionedDirectional(
+                start: horizontalPadding,
+                end: horizontalPadding,
+                bottom: bottomPadding,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _HeaderIconButton(
-                      icon: Icons.arrow_forward,
-                      onTap: onBack ?? () => Navigator.maybePop(context),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        title ?? '',
-                        style: const TextStyle(
-                          color: AppColors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                    ),
-                    ?trailing,
-                  ],
-                )
-              else
-                Row(
-                  children: [
-                    Container(
-                      width: 46,
-                      height: 46,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(14),
-                        gradient: const LinearGradient(
-                          colors: [AppColors.gold, AppColors.goldDark],
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppColors.gold.withValues(alpha: 0.3),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: const Center(
-                        child: Text(
-                          'أ',
-                          style: TextStyle(
-                            color: AppColors.navyDark,
-                            fontSize: 20,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                    if (showBack)
+                      Row(
                         children: [
-                          Text(
-                            title ?? 'مرحباً، أحمد الراجحي',
-                            style: const TextStyle(
-                              color: AppColors.white,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w800,
+                          _HeaderIconButton(
+                            icon: Icons.arrow_forward,
+                            onTap: onBack ?? () => Navigator.maybePop(context),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              title ?? '',
+                              style: const TextStyle(
+                                color: AppColors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.w900,
+                              ),
                             ),
                           ),
-                          const SizedBox(height: 2),
-                          Text(
-                            subtitle ?? 'فرع الرياض — المروج',
-                            style: const TextStyle(
-                              color: AppColors.goldLight,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
+                          ?trailing,
+                        ],
+                      )
+                    else
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  title ?? 'مرحباً، أحمد الراجحي',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: AppColors.white,
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w900,
+                                    height: 1.15,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                Container(
+                                  width: double.infinity,
+                                  height: 1.2,
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(999),
+                                    gradient: LinearGradient(
+                                      colors: [
+                                        AppColors.gold.withValues(alpha: 0),
+                                        AppColors.gold.withValues(alpha: 0.9),
+                                        AppColors.gold.withValues(alpha: 0.2),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 7),
+                                Text(
+                                  subtitle ?? 'فرع الرياض — المروج',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: AppColors.goldLight,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w800,
+                                    height: 1.1,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
+                          if (trailing != null) ...[
+                            const SizedBox(width: 10),
+                            trailing!,
+                          ],
+                          if (onNotificationTap != null) ...[
+                            const SizedBox(width: 10),
+                            _HeaderIconButton(
+                              icon: Icons.notifications,
+                              badge: notificationCount,
+                              onTap: onNotificationTap,
+                            ),
+                          ],
                         ],
                       ),
-                    ),
-                    if (onNotificationTap != null)
-                      _HeaderIconButton(
-                        icon: Icons.notifications,
-                        badge: notificationCount,
-                        onTap: onNotificationTap,
-                      ),
-                    if (trailing != null) ...[
-                      const SizedBox(width: 8),
-                      trailing!,
-                    ],
                   ],
                 ),
+              ),
             ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -180,16 +197,16 @@ class _HeaderIconButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(AppRadius.sm),
+      borderRadius: BorderRadius.circular(16),
       child: Stack(
         clipBehavior: Clip.none,
         children: [
           Container(
-            width: 42,
-            height: 42,
+            width: 48,
+            height: 48,
             decoration: BoxDecoration(
               color: AppColors.white.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(AppRadius.sm),
+              borderRadius: BorderRadius.circular(16),
               border: Border.all(
                 color: AppColors.white.withValues(alpha: 0.08),
               ),

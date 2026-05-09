@@ -131,7 +131,7 @@ class HomeShell extends StatefulWidget {
 }
 
 class _HomeShellState extends State<HomeShell> {
-  static const double _headerHeight = 128;
+  static const double _headerHeight = 124;
 
   late final AppController _controller = AppController(
     currentUser: widget.currentUser,
@@ -389,13 +389,13 @@ class _HeaderLogoutButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(AppRadius.sm),
+      borderRadius: BorderRadius.circular(16),
       child: Container(
-        width: 42,
-        height: 42,
+        width: 48,
+        height: 48,
         decoration: BoxDecoration(
           color: AppColors.red.withValues(alpha: 0.16),
-          borderRadius: BorderRadius.circular(AppRadius.sm),
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(color: AppColors.red.withValues(alpha: 0.22)),
         ),
         child: const Icon(
