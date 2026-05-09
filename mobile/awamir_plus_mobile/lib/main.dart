@@ -190,6 +190,7 @@ class _HomeShellState extends State<HomeShell> {
                     notificationCount: _controller.unreadNotifications,
                     onNotificationTap: () =>
                         _openFeature(AppFeature.notifications),
+                    trailing: _HeaderLogoutButton(onTap: widget.onLogout),
                   ),
                 ),
               ),
@@ -232,11 +233,7 @@ class _HomeShellState extends State<HomeShell> {
 
     switch (_selectedFeature) {
       case AppFeature.home:
-        return HomeScreen(
-          controller: _controller,
-          onOpenFeature: _openFeature,
-          onLogout: widget.onLogout,
-        );
+        return HomeScreen(controller: _controller, onOpenFeature: _openFeature);
       case AppFeature.branchOrders:
         return OrdersScreen(controller: _controller);
       case AppFeature.branchApprovals:
@@ -377,6 +374,34 @@ class _BottomNav extends StatelessWidget {
                 ),
               ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HeaderLogoutButton extends StatelessWidget {
+  const _HeaderLogoutButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(AppRadius.sm),
+      child: Container(
+        width: 42,
+        height: 42,
+        decoration: BoxDecoration(
+          color: AppColors.red.withValues(alpha: 0.16),
+          borderRadius: BorderRadius.circular(AppRadius.sm),
+          border: Border.all(color: AppColors.red.withValues(alpha: 0.22)),
+        ),
+        child: const Icon(
+          Icons.logout_rounded,
+          color: AppColors.white,
+          size: 21,
         ),
       ),
     );

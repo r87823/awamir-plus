@@ -4,7 +4,6 @@ import '../controllers/app_controller.dart';
 import '../core/permissions/access_control.dart';
 import '../core/theme/app_theme.dart';
 import '../models/app_models.dart';
-import '../widgets/app_header.dart';
 import '../core/utils/formatters.dart';
 import '../widgets/order_card.dart';
 import '../widgets/quick_action_card.dart';
@@ -16,12 +15,10 @@ class HomeScreen extends StatelessWidget {
     super.key,
     required this.controller,
     required this.onOpenFeature,
-    required this.onLogout,
   });
 
   final AppController controller;
   final ValueChanged<AppFeature> onOpenFeature;
-  final VoidCallback onLogout;
 
   @override
   Widget build(BuildContext context) {
@@ -31,30 +28,20 @@ class HomeScreen extends StatelessWidget {
         return ListView(
           padding: EdgeInsets.zero,
           children: [
-            AppHeader(
-              title: 'مرحباً، ${controller.currentUser.fullName}',
-              subtitle: controller.currentUser.branchName,
-              notificationCount: controller.unreadNotifications,
-              onNotificationTap: () => onOpenFeature(AppFeature.notifications),
-            ),
-            _UserInfoCard(controller: controller, onLogout: onLogout),
-            Transform.translate(
-              offset: const Offset(0, -6),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: GridView.count(
-                  crossAxisCount: 2,
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 12,
-                  childAspectRatio: 1.35,
-                  children: _statsForRole(),
-                ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
+              child: GridView.count(
+                crossAxisCount: 2,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+                childAspectRatio: 1.35,
+                children: _statsForRole(),
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
               child: GridView.count(
                 crossAxisCount: 3,
                 shrinkWrap: true,
@@ -332,77 +319,5 @@ class HomeScreen extends StatelessWidget {
             : null,
       );
     });
-  }
-}
-
-class _UserInfoCard extends StatelessWidget {
-  const _UserInfoCard({required this.controller, required this.onLogout});
-
-  final AppController controller;
-  final VoidCallback onLogout;
-
-  @override
-  Widget build(BuildContext context) {
-    final user = controller.currentUser;
-    return Transform.translate(
-      offset: const Offset(0, -18),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        child: Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: AppColors.white,
-            borderRadius: BorderRadius.circular(AppRadius.md),
-            border: Border.all(color: AppColors.gold.withValues(alpha: 0.12)),
-            boxShadow: AppShadows.soft,
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(
-                  color: AppColors.cream,
-                  borderRadius: BorderRadius.circular(AppRadius.sm),
-                ),
-                child: const Icon(Icons.badge_outlined, color: AppColors.navy),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      user.fullName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppColors.navy,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    Text(
-                      '${user.role.label} — ${user.branchName}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppColors.textMuted,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              IconButton(
-                tooltip: 'تسجيل خروج',
-                onPressed: onLogout,
-                icon: const Icon(Icons.logout, color: AppColors.red),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 }
