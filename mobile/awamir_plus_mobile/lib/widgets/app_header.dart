@@ -26,6 +26,10 @@ class AppHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (AppHeaderScope.suppressesEmbeddedHeaders(context)) {
+      return const SizedBox.shrink();
+    }
+
     return Container(
       width: double.infinity,
       padding: EdgeInsets.fromLTRB(
@@ -140,6 +144,28 @@ class AppHeader extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+class AppHeaderScope extends InheritedWidget {
+  const AppHeaderScope({
+    super.key,
+    required this.suppressEmbeddedHeaders,
+    required super.child,
+  });
+
+  final bool suppressEmbeddedHeaders;
+
+  static bool suppressesEmbeddedHeaders(BuildContext context) {
+    return context
+            .dependOnInheritedWidgetOfExactType<AppHeaderScope>()
+            ?.suppressEmbeddedHeaders ??
+        false;
+  }
+
+  @override
+  bool updateShouldNotify(covariant AppHeaderScope oldWidget) {
+    return suppressEmbeddedHeaders != oldWidget.suppressEmbeddedHeaders;
   }
 }
 

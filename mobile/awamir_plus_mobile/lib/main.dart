@@ -23,6 +23,7 @@ import 'core/theme/app_theme.dart';
 import 'models/app_models.dart';
 import 'repositories/auth_repository.dart';
 import 'services/mock_service.dart';
+import 'widgets/app_header.dart';
 import 'widgets/state_views.dart';
 
 void main() {
@@ -130,6 +131,8 @@ class HomeShell extends StatefulWidget {
 }
 
 class _HomeShellState extends State<HomeShell> {
+  static const double _headerHeight = 128;
+
   late final AppController _controller = AppController(
     currentUser: widget.currentUser,
     mockService: widget.mockService,
@@ -146,6 +149,7 @@ class _HomeShellState extends State<HomeShell> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      extendBody: true,
       body: AnimatedBuilder(
         animation: _controller,
         builder: (context, _) {
@@ -163,7 +167,34 @@ class _HomeShellState extends State<HomeShell> {
               message: _controller.appState.message ?? 'لا توجد بيانات حالياً',
             );
           }
-          return _buildPage();
+          return Stack(
+            children: [
+              Positioned.fill(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: _headerHeight),
+                  child: AppHeaderScope(
+                    suppressEmbeddedHeaders: true,
+                    child: _buildPage(),
+                  ),
+                ),
+              ),
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: SizedBox(
+                  height: _headerHeight,
+                  child: AppHeader(
+                    title: _headerTitle(),
+                    subtitle: _headerSubtitle(),
+                    notificationCount: _controller.unreadNotifications,
+                    onNotificationTap: () =>
+                        _openFeature(AppFeature.notifications),
+                  ),
+                ),
+              ),
+            ],
+          );
         },
       ),
       bottomNavigationBar: AnimatedBuilder(
@@ -178,6 +209,20 @@ class _HomeShellState extends State<HomeShell> {
         },
       ),
     );
+  }
+
+  String _headerTitle() {
+    if (_selectedFeature == AppFeature.home) {
+      return 'مرحباً، ${_controller.currentUser.fullName}';
+    }
+    return _selectedFeature.label;
+  }
+
+  String _headerSubtitle() {
+    if (_selectedFeature == AppFeature.home) {
+      return _controller.currentUser.branchName;
+    }
+    return '${_controller.currentUser.role.label} — ${_controller.currentUser.branchName}';
   }
 
   Widget _buildPage() {
@@ -265,117 +310,219 @@ class _BottomNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final items = features;
+    final hasCreateOrder = features.contains(AppFeature.createOrder);
+    final sideItems = hasCreateOrder
+        ? features.where((item) => item != AppFeature.createOrder).toList()
+        : features;
 
     return SafeArea(
       top: false,
-      child: Container(
-        decoration: BoxDecoration(
-          color: AppColors.white,
-          border: const Border(top: BorderSide(color: AppColors.creamDark)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
-              blurRadius: 15,
-              offset: const Offset(0, -2),
+      child: SizedBox(
+        height: 96,
+        child: Stack(
+          clipBehavior: Clip.none,
+          alignment: Alignment.bottomCenter,
+          children: [
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: Container(
+                height: 78,
+                decoration: BoxDecoration(
+                  color: AppColors.white,
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(28),
+                  ),
+                  border: Border.all(color: AppColors.creamDark),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.09),
+                      blurRadius: 22,
+                      offset: const Offset(0, -6),
+                    ),
+                  ],
+                ),
+              ),
             ),
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 4,
+              child: Row(
+                children: [
+                  for (var index = 0; index < sideItems.length; index++) ...[
+                    if (hasCreateOrder && index == 2)
+                      const Expanded(child: SizedBox(height: 70)),
+                    Expanded(
+                      child: _BottomNavItem(
+                        item: sideItems[index],
+                        selected: selectedFeature == sideItems[index],
+                        badge: sideItems[index] == AppFeature.notifications
+                            ? notificationCount
+                            : 0,
+                        onTap: () => onChanged(sideItems[index]),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            if (hasCreateOrder)
+              Positioned(
+                top: 0,
+                child: _CreateOrderNavButton(
+                  selected: selectedFeature == AppFeature.createOrder,
+                  onTap: () => onChanged(AppFeature.createOrder),
+                ),
+              ),
           ],
         ),
-        child: Row(
-          children: List.generate(items.length, (index) {
-            final item = items[index];
-            final selected = selectedFeature == item;
-            final badge = item == AppFeature.notifications
-                ? notificationCount
-                : 0;
-            return Expanded(
-              child: InkWell(
-                onTap: () => onChanged(item),
+      ),
+    );
+  }
+}
+
+class _CreateOrderNavButton extends StatelessWidget {
+  const _CreateOrderNavButton({required this.selected, required this.onTap});
+
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(34),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            width: 68,
+            height: 68,
+            decoration: BoxDecoration(
+              color: selected ? AppColors.goldDark : AppColors.navyDark,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.18),
+                  blurRadius: 18,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: const Icon(
+              Icons.add_rounded,
+              color: AppColors.white,
+              size: 34,
+            ),
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          AppFeature.createOrder.label,
+          style: TextStyle(
+            color: selected ? AppColors.navy : AppColors.textMuted,
+            fontSize: 11,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _BottomNavItem extends StatelessWidget {
+  const _BottomNavItem({
+    required this.item,
+    required this.selected,
+    required this.badge,
+    required this.onTap,
+  });
+
+  final AppFeature item;
+  final bool selected;
+  final int badge;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: SizedBox(
+        height: 70,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            if (selected)
+              const Positioned(
+                top: 0,
                 child: SizedBox(
-                  height: 62,
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      if (selected)
-                        const Positioned(
-                          top: 0,
-                          child: SizedBox(
-                            width: 30,
-                            height: 3,
-                            child: DecoratedBox(
-                              decoration: BoxDecoration(
-                                color: AppColors.gold,
-                                borderRadius: BorderRadius.vertical(
-                                  bottom: Radius.circular(3),
-                                ),
+                  width: 32,
+                  height: 4,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: AppColors.gold,
+                      borderRadius: BorderRadius.vertical(
+                        bottom: Radius.circular(4),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Icon(
+                      item.icon,
+                      color: selected ? AppColors.navy : AppColors.textMuted,
+                      size: 27,
+                    ),
+                    if (badge > 0)
+                      Positioned(
+                        top: -8,
+                        right: -10,
+                        child: Container(
+                          constraints: const BoxConstraints(
+                            minWidth: 18,
+                            minHeight: 18,
+                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 5),
+                          decoration: const BoxDecoration(
+                            color: AppColors.red,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Center(
+                            child: Text(
+                              '$badge',
+                              style: const TextStyle(
+                                color: AppColors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w900,
                               ),
                             ),
                           ),
                         ),
-                      Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Stack(
-                            clipBehavior: Clip.none,
-                            children: [
-                              Icon(
-                                item.icon,
-                                color: selected
-                                    ? AppColors.navy
-                                    : AppColors.textMuted,
-                                size: 24,
-                              ),
-                              if (badge > 0)
-                                Positioned(
-                                  top: -7,
-                                  right: -10,
-                                  child: Container(
-                                    constraints: const BoxConstraints(
-                                      minWidth: 16,
-                                      minHeight: 16,
-                                    ),
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 4,
-                                    ),
-                                    decoration: const BoxDecoration(
-                                      color: AppColors.red,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: Center(
-                                      child: Text(
-                                        '$badge',
-                                        style: const TextStyle(
-                                          color: AppColors.white,
-                                          fontSize: 9,
-                                          fontWeight: FontWeight.w900,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            item.label,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: selected
-                                  ? AppColors.navy
-                                  : AppColors.textMuted,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ],
                       ),
-                    ],
+                  ],
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  item.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: selected ? AppColors.navy : AppColors.textMuted,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w900,
                   ),
                 ),
-              ),
-            );
-          }),
+              ],
+            ),
+          ],
         ),
       ),
     );
