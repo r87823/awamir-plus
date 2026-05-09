@@ -228,8 +228,42 @@ class MockService implements AuthService {
   }
 
   Future<Order> submitOrderForApproval(String orderId) async {
-    final order = _orders.firstWhere((item) => item.id == orderId);
-    return order;
+    final index = _orders.indexWhere((item) => item.id == orderId);
+    if (index == -1) {
+      throw const RepositoryException(
+        'لم يتم العثور على الطلب',
+        code: 'order_not_found',
+      );
+    }
+    final order = _orders[index];
+    if (order.status == OrderStatus.pendingSupervisorApproval) {
+      return order;
+    }
+    if (order.status != OrderStatus.draft) {
+      throw const RepositoryException(
+        'يمكن إرسال المسودات فقط للموافقة',
+        code: 'order_not_draft',
+      );
+    }
+    final updated = order.copyWith(
+      status: OrderStatus.pendingSupervisorApproval,
+      progress: _progressForStatus(OrderStatus.pendingSupervisorApproval),
+    );
+    _orders[index] = updated;
+    _statusLogs.insert(
+      0,
+      OrderStatusLog(
+        id: _nextStatusLogId(),
+        orderId: order.id,
+        oldStatus: OrderStatus.draft,
+        newStatus: OrderStatus.pendingSupervisorApproval,
+        changedByUserId: order.createdByUserId,
+        changedByName: order.createdByName,
+        changedAt: DateTime.now(),
+        notes: 'تم إرسال الطلب للموافقة',
+      ),
+    );
+    return updated;
   }
 
   Future<void> recordDeposit({

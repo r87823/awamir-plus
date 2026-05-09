@@ -383,6 +383,34 @@ class AppController extends ChangeNotifier {
     return false;
   }
 
+  Future<Order?> submitExistingDraftForApproval(Order order) async {
+    if (order.status != OrderStatus.draft) {
+      actionState = const ViewState.error('يمكن إرسال المسودات فقط للموافقة');
+      notifyListeners();
+      return null;
+    }
+
+    actionState = const ViewState.loading();
+    notifyListeners();
+
+    try {
+      final updatedOrder = await _orderRepository.submitOrderForApproval(
+        order.id,
+      );
+      await _refreshOperationalLists();
+      actionState = const ViewState.success(null);
+      notifyListeners();
+      return updatedOrder;
+    } on AppException catch (error) {
+      actionState = ViewState.error(error.message);
+    } catch (error) {
+      actionState = const ViewState.error('تعذر إرسال المسودة للموافقة');
+    }
+
+    notifyListeners();
+    return null;
+  }
+
   Future<void> markNotificationRead(int id) async {
     try {
       await _orderRepository.markNotificationAsRead(id);

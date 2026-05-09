@@ -150,8 +150,13 @@ class ErpnextService implements AuthService {
     );
   }
 
-  Future<Order> submitOrderForApproval(String orderId) {
-    return _notConfigured();
+  Future<Order> submitOrderForApproval(String orderId) async {
+    final data = await _apiClient.post<Map<String, dynamic>>(
+      'awamir_plus.api.orders.submit_order_for_approval',
+      body: {'order': orderId},
+      parser: (data) => _asMap(data),
+    );
+    return _mapOrderFromActionResponse(data);
   }
 
   Future<void> recordDeposit({

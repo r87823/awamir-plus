@@ -11,11 +11,13 @@ class OrderCard extends StatelessWidget {
     required this.order,
     this.compact = false,
     this.onTap,
+    this.actions = const [],
   });
 
   final Order order;
   final bool compact;
   final VoidCallback? onTap;
+  final List<Widget> actions;
 
   @override
   Widget build(BuildContext context) {
@@ -98,6 +100,23 @@ class OrderCard extends StatelessWidget {
                         ),
                       );
                     }),
+                  ),
+                ],
+                if (actions.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Row(
+                    children: actions
+                        .map(
+                          (action) => Expanded(
+                            child: Padding(
+                              padding: const EdgeInsetsDirectional.only(
+                                start: 4,
+                              ),
+                              child: action,
+                            ),
+                          ),
+                        )
+                        .toList(),
                   ),
                 ],
               ],

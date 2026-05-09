@@ -7,6 +7,7 @@ import '../models/app_models.dart';
 import '../widgets/app_header.dart';
 import '../widgets/order_card.dart';
 import '../widgets/state_views.dart';
+import 'order_detail_screen.dart';
 
 class OrdersScreen extends StatefulWidget {
   const OrdersScreen({
@@ -88,12 +89,77 @@ class _OrdersScreenState extends State<OrdersScreen> {
             if (orders.isEmpty)
               const _EmptyOrders()
             else
-              ...orders.map((order) => OrderCard(order: order)),
+              ...orders.map(_buildOrderCard),
             const SizedBox(height: 90),
           ],
         );
       },
     );
+  }
+
+  Widget _buildOrderCard(Order order) {
+    final canSubmitDraft =
+        order.status == OrderStatus.draft &&
+        AccessControl.canCreateOrder(widget.controller.currentUser);
+    final isLoading = widget.controller.isActionLoading;
+    return OrderCard(
+      order: order,
+      onTap: () => _openDetails(order),
+      actions: [
+        OutlinedButton(
+          onPressed: () => _openDetails(order),
+          child: const Text('التفاصيل'),
+        ),
+        if (canSubmitDraft)
+          FilledButton(
+            onPressed: isLoading ? null : () => _confirmSubmitDraft(order),
+            child: isLoading
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Text('إرسال للموافقة'),
+          ),
+      ],
+    );
+  }
+
+  void _openDetails(Order order) {
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => OrderDetailScreen(order: order)));
+  }
+
+  Future<void> _confirmSubmitDraft(Order order) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('إرسال المسودة'),
+        content: Text('هل تريد إرسال الطلب ${order.id} للموافقة؟'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('إلغاء'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('إرسال'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    final result = await widget.controller.submitExistingDraftForApproval(
+      order,
+    );
+    if (!mounted) return;
+    final message = result == null
+        ? widget.controller.actionErrorMessage ?? 'تعذر إرسال الطلب للموافقة'
+        : 'تم إرسال الطلب للموافقة بنجاح';
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   String _shortLabel(OrderStatus status) {

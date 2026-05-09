@@ -268,6 +268,39 @@ void main() {
     },
   );
 
+  test('إرسال مسودة موجودة يستخدم order id ولا ينشئ payload جديد', () async {
+    late Map<String, dynamic> sentBody;
+    late Uri sentUrl;
+    final service = ErpnextService(
+      apiClient: ApiClient(
+        baseUrl: 'https://example.com',
+        cookieStore: _MemoryCookieStore(),
+        httpClient: MockClient((request) async {
+          sentUrl = request.url;
+          sentBody = jsonDecode(request.body) as Map<String, dynamic>;
+          return _jsonResponse({
+            'message': {
+              'order_id': 'ORD-2026-00013',
+              'order_number': 'ORD-2026-00013',
+              'status': 'Pending Supervisor Approval',
+              'order': _orderPayload(status: 'Pending Supervisor Approval'),
+            },
+          });
+        }),
+      ),
+    );
+
+    final order = await service.submitOrderForApproval('ORD-2026-00013');
+
+    expect(
+      sentUrl.path,
+      endsWith('/awamir_plus.api.orders.submit_order_for_approval'),
+    );
+    expect(sentBody['order'], 'ORD-2026-00013');
+    expect(sentBody.containsKey('order_data'), isFalse);
+    expect(order.status, OrderStatus.pendingSupervisorApproval);
+  });
+
   test('فشل create order لا يمسح بيانات نموذج الطلب', () async {
     final service = ErpnextService(
       apiClient: ApiClient(

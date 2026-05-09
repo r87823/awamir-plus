@@ -86,7 +86,24 @@ def save_order_as_draft(order_data=None, idempotency_key=None, **kwargs):
 
 
 @frappe.whitelist()
-def submit_order_for_approval(order_data=None, idempotency_key=None, **kwargs):
+def submit_order_for_approval(order_data=None, order=None, order_id=None, idempotency_key=None, **kwargs):
+    existing_order = order or order_id or kwargs.get("order") or kwargs.get("order_id")
+    parsed_data = parse_json(order_data, None)
+    if existing_order and not isinstance(parsed_data, dict):
+        payload = {"order": existing_order}
+
+        def _execute_existing():
+            return _submit_existing_order_for_approval(existing_order)
+
+        return run_idempotent(
+            "submit_existing_order_for_approval",
+            payload,
+            _execute_existing,
+            idempotency_key=idempotency_key,
+            reference_doctype="Awamir Order Request",
+            reference_name=existing_order,
+        )
+
     data = _parse_order_data(order_data, kwargs)
 
     def _execute():
@@ -98,6 +115,55 @@ def submit_order_for_approval(order_data=None, idempotency_key=None, **kwargs):
         _execute,
         idempotency_key=idempotency_key or data.get("idempotency_key"),
     )
+
+
+def _submit_existing_order_for_approval(order):
+    require_permissions(PERMISSION_ORDER_CREATE)
+    assert_required(order, "Order is required.")
+    doc = frappe.get_doc("Awamir Order Request", order)
+    require_branch_scope(doc.created_branch)
+
+    if doc.status == ORDER_STATUS_PENDING_APPROVAL:
+        response = _order_response(doc)
+        response["message"] = _("Order is already waiting for supervisor approval.")
+        make_audit_log(
+            "order_submit_for_approval_skipped",
+            status="skipped",
+            reference_doctype="Awamir Order Request",
+            reference_name=doc.name,
+            method="submit_order_for_approval",
+            payload={"order": order},
+            response=response,
+        )
+        return response
+
+    if doc.status != ORDER_STATUS_DRAFT:
+        frappe.throw(_("Only draft orders can be sent for supervisor approval."))
+
+    old_status = doc.status
+    doc.status = ORDER_STATUS_PENDING_APPROVAL
+    doc.save(ignore_permissions=True)
+    make_status_log(doc.name, old_status, doc.status, _("Order sent for supervisor approval."))
+    for supervisor in _get_branch_supervisors():
+        create_notification(
+            supervisor,
+            _("New Order Approval"),
+            _("Order {0} is waiting for approval.").format(doc.order_number),
+            doc.name,
+            "order_submitted",
+        )
+
+    response = _order_response(doc)
+    response["message"] = _("Order sent for supervisor approval.")
+    make_audit_log(
+        "order_submitted_for_approval",
+        reference_doctype="Awamir Order Request",
+        reference_name=doc.name,
+        method="submit_order_for_approval",
+        payload={"order": order},
+        response=response,
+    )
+    return response
 
 
 @frappe.whitelist()
