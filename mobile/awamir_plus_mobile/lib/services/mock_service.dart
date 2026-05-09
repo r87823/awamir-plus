@@ -180,12 +180,21 @@ class MockService implements AuthService {
   Future<void> saveOrderAsDraft(OrderDraft draft) async {}
 
   Future<Order> saveDraft(CreateOrderRequest request) async {
+    if (request.isEditing) {
+      return _updateOrderFromRequest(request, OrderStatus.draft);
+    }
     final order = _orderFromRequest(request, OrderStatus.draft);
     _orders.insert(0, order);
     return order;
   }
 
   Future<Order> submitForApproval(CreateOrderRequest request) async {
+    if (request.isEditing) {
+      return _updateOrderFromRequest(
+        request,
+        OrderStatus.pendingSupervisorApproval,
+      );
+    }
     final order = _orderFromRequest(
       request,
       OrderStatus.pendingSupervisorApproval,
@@ -2971,19 +2980,74 @@ class MockService implements AuthService {
     return id;
   }
 
-  Order _orderFromRequest(CreateOrderRequest request, OrderStatus status) {
+  Order _updateOrderFromRequest(
+    CreateOrderRequest request,
+    OrderStatus status,
+  ) {
+    final orderId = request.editingOrderId.trim();
+    final index = _orders.indexWhere((item) => item.id == orderId);
+    if (index == -1) {
+      throw const RepositoryException(
+        'لم يتم العثور على المسودة المطلوبة',
+        code: 'draft_not_found',
+      );
+    }
+
+    final existing = _orders[index];
+    if (existing.status != OrderStatus.draft) {
+      throw const RepositoryException(
+        'يمكن تعديل الطلب إذا كان مسودة فقط',
+        code: 'draft_not_editable',
+      );
+    }
+
+    final updated = _orderFromRequest(
+      request,
+      status,
+      existingId: existing.id,
+      createdDate: existing.date,
+    );
+    _orders[index] = updated;
+
+    if (existing.status != status) {
+      _statusLogs.insert(
+        0,
+        OrderStatusLog(
+          id: _nextStatusLogId(),
+          orderId: existing.id,
+          oldStatus: existing.status,
+          newStatus: status,
+          changedByUserId: updated.createdByUserId,
+          changedByName: updated.createdByName,
+          changedAt: DateTime.now(),
+          notes: status == OrderStatus.pendingSupervisorApproval
+              ? 'تم تحديث المسودة وإرسالها للموافقة'
+              : 'تم تحديث المسودة',
+        ),
+      );
+    }
+
+    return updated;
+  }
+
+  Order _orderFromRequest(
+    CreateOrderRequest request,
+    OrderStatus status, {
+    String? existingId,
+    String? createdDate,
+  }) {
     final attachments = List<OrderAttachmentDraft>.of(request.attachments);
     final receipt = request.paymentReceipt;
     if (receipt != null) attachments.add(receipt);
     return Order(
-      id: _nextCreateOrderId(),
+      id: existingId ?? _nextCreateOrderId(),
       customer: request.customerName.trim().isEmpty
           ? request.companyName.trim()
           : request.customerName.trim(),
       productSummary: _requestProductSummary(request),
       amount: request.grandTotal,
       status: status,
-      date: formatDate(DateTime.now()),
+      date: createdDate ?? formatDate(DateTime.now()),
       progress: status == OrderStatus.draft ? 0 : 1,
       paymentMethod: request.paymentMethod,
       customerPhone: request.customerPhone,
@@ -3004,6 +3068,8 @@ class MockService implements AuthService {
       fulfillmentType: request.fulfillmentType,
       deliveryDetails: request.deliveryDetails,
       depositAmount: request.depositAmount,
+      transactionReference: request.transactionReference,
+      paymentReceiptPath: request.paymentReceipt?.path ?? '',
       remainingAmount: request.remainingAmount,
       createdBranch: request.createdBranch.name,
       createdBranchId: request.createdBranch.id,

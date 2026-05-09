@@ -238,6 +238,34 @@ void main() {
     expect(items.single['item_code'], 'AWAMIR-KUNAFA');
   });
 
+  test('save draft يرسل order id عند تعديل مسودة موجودة', () async {
+    late Map<String, dynamic> sentBody;
+    final service = ErpnextService(
+      apiClient: ApiClient(
+        baseUrl: 'https://example.com',
+        cookieStore: _MemoryCookieStore(),
+        httpClient: MockClient((request) async {
+          sentBody = jsonDecode(request.body) as Map<String, dynamic>;
+          return _jsonResponse({
+            'message': {
+              'order_id': 'ORD-2026-00011',
+              'order_number': 'ORD-2026-00011',
+              'status': 'Draft',
+              'order': _orderPayload(status: 'Draft'),
+            },
+          });
+        }),
+      ),
+    );
+
+    final request = _createOrderRequest()..editingOrderId = 'ORD-2026-00011';
+    await service.saveDraft(request);
+    final orderData = sentBody['order_data'] as Map<String, dynamic>;
+
+    expect(orderData['order'], 'ORD-2026-00011');
+    expect(orderData['submit_for_approval'], isFalse);
+  });
+
   test(
     'submit approval يرسل submit_for_approval ويرجع Pending Approval',
     () async {
@@ -267,6 +295,34 @@ void main() {
       expect(order.status, OrderStatus.pendingSupervisorApproval);
     },
   );
+
+  test('submit approval يرسل order id عند تعديل مسودة موجودة', () async {
+    late Map<String, dynamic> sentBody;
+    final service = ErpnextService(
+      apiClient: ApiClient(
+        baseUrl: 'https://example.com',
+        cookieStore: _MemoryCookieStore(),
+        httpClient: MockClient((request) async {
+          sentBody = jsonDecode(request.body) as Map<String, dynamic>;
+          return _jsonResponse({
+            'message': {
+              'order_id': 'ORD-2026-00012',
+              'order_number': 'ORD-2026-00012',
+              'status': 'Pending Supervisor Approval',
+              'order': _orderPayload(status: 'Pending Supervisor Approval'),
+            },
+          });
+        }),
+      ),
+    );
+
+    final request = _createOrderRequest()..editingOrderId = 'ORD-2026-00012';
+    await service.submitForApproval(request);
+    final orderData = sentBody['order_data'] as Map<String, dynamic>;
+
+    expect(orderData['order'], 'ORD-2026-00012');
+    expect(orderData['submit_for_approval'], isTrue);
+  });
 
   test('إرسال مسودة موجودة يستخدم order id ولا ينشئ payload جديد', () async {
     late Map<String, dynamic> sentBody;

@@ -9,6 +9,7 @@ from awamir_plus.constants import (
     ORDER_STATUS_DRAFT,
     ORDER_STATUS_PENDING_APPROVAL,
     PAYMENT_STATUS_RECORDED,
+    PAYMENT_STATUS_RETURNED,
     PERMISSION_ACCOUNTING_VIEW_FINANCIALS,
     PERMISSION_CASHBOX_VIEW_ALL,
     PERMISSION_CASHBOX_VIEW_OWN,
@@ -17,6 +18,7 @@ from awamir_plus.constants import (
     PERMISSION_FULFILLMENT_VIEW_QUEUE,
     PERMISSION_ORDER_CANCEL,
     PERMISSION_ORDER_CREATE,
+    PERMISSION_ORDER_EDIT_DRAFT,
     PERMISSION_ORDER_VIEW_BRANCH,
     PERMISSION_ORDER_VIEW_OWN,
     PERMISSION_WORK_ORDER_VIEW_DEPARTMENT,
@@ -71,8 +73,24 @@ def create_order(order_data=None, idempotency_key=None, **kwargs):
 
 
 @frappe.whitelist()
-def save_order_as_draft(order_data=None, idempotency_key=None, **kwargs):
+def save_order_as_draft(order_data=None, order=None, order_id=None, idempotency_key=None, **kwargs):
     data = _parse_order_data(order_data, kwargs)
+    existing_order = order or order_id or data.get("order") or data.get("order_id")
+
+    if existing_order and _has_edit_payload(data):
+        payload = {"order": existing_order, **data}
+
+        def _execute_update():
+            return _update_order(existing_order, data, ORDER_STATUS_DRAFT)
+
+        return run_idempotent(
+            "save_order_as_draft_update",
+            payload,
+            _execute_update,
+            idempotency_key=idempotency_key or data.get("idempotency_key"),
+            reference_doctype="Awamir Order Request",
+            reference_name=existing_order,
+        )
 
     def _execute():
         return _save_order(data, ORDER_STATUS_DRAFT)
@@ -87,8 +105,29 @@ def save_order_as_draft(order_data=None, idempotency_key=None, **kwargs):
 
 @frappe.whitelist()
 def submit_order_for_approval(order_data=None, order=None, order_id=None, idempotency_key=None, **kwargs):
-    existing_order = order or order_id or kwargs.get("order") or kwargs.get("order_id")
     parsed_data = parse_json(order_data, None)
+    existing_order = (
+        order
+        or order_id
+        or kwargs.get("order")
+        or kwargs.get("order_id")
+        or (parsed_data or {}).get("order")
+        or (parsed_data or {}).get("order_id")
+    )
+    if existing_order and isinstance(parsed_data, dict) and _has_edit_payload(parsed_data):
+        payload = {"order": existing_order, **parsed_data}
+
+        def _execute_update():
+            return _update_order(existing_order, parsed_data, ORDER_STATUS_PENDING_APPROVAL)
+
+        return run_idempotent(
+            "submit_order_for_approval_update",
+            payload,
+            _execute_update,
+            idempotency_key=idempotency_key or parsed_data.get("idempotency_key"),
+            reference_doctype="Awamir Order Request",
+            reference_name=existing_order,
+        )
     if existing_order and not isinstance(parsed_data, dict):
         payload = {"order": existing_order}
 
@@ -164,6 +203,144 @@ def _submit_existing_order_for_approval(order):
         response=response,
     )
     return response
+
+
+def _update_order(order, order_data, status):
+    require_permissions(PERMISSION_ORDER_EDIT_DRAFT)
+    data = order_data if isinstance(order_data, dict) else parse_json(order_data, {})
+    doc = frappe.get_doc("Awamir Order Request", order)
+    _assert_editable_draft(doc)
+
+    data["customer_phone"] = normalize_phone_input(data.get("customer_phone"))
+    items = data.get("items") or []
+    assert_required(items, "At least one item is required.")
+    assert_required(data.get("customer_phone"), "Customer phone is required.")
+    assert_required(data.get("required_date"), "Required date is required.")
+    assert_required(data.get("required_time"), "Required time is required.")
+
+    requested_branch = data.get("created_branch") or doc.created_branch
+    user_branch = get_user_branch()
+    branch = requested_branch or user_branch
+    if not is_awamir_admin() and user_branch and requested_branch and requested_branch != user_branch:
+        frappe.throw(_("Created branch must match your branch."))
+    assert_required(branch, "Created branch is required.")
+
+    required_date = getdate(data.get("required_date"))
+    if required_date < getdate():
+        frappe.throw(_("Required date cannot be in the past."))
+
+    delivery_type = data.get("delivery_type") or "Pickup"
+    pickup_branch = data.get("pickup_branch") or (branch if delivery_type == "Pickup" else None)
+    if delivery_type == "Delivery" and not (data.get("delivery_address") or data.get("delivery_location_url")):
+        frappe.throw(_("Delivery address or location URL is required."))
+
+    customer = _get_or_create_customer(data)
+    if customer and not data.get("customer_name"):
+        data["customer_name"] = frappe.db.get_value("Customer", customer, "customer_name")
+
+    coordinates = extract_coordinates_from_google_maps_url(data.get("delivery_location_url"))
+    latitude = data.get("latitude") or (coordinates or {}).get("latitude")
+    longitude = data.get("longitude") or (coordinates or {}).get("longitude")
+    total_amount = sum(to_float(item.get("amount")) or to_float(item.get("qty")) * to_float(item.get("rate")) for item in items)
+    delivery_fee = to_float(data.get("delivery_fee"))
+    deposit_amount = to_float(data.get("deposit_amount"))
+    if deposit_amount > total_amount + delivery_fee:
+        frappe.throw(_("Deposit cannot exceed order total plus delivery fee."))
+
+    old_status = doc.status
+    doc.customer = customer
+    doc.customer_name = data.get("customer_name")
+    doc.customer_phone = data.get("customer_phone")
+    doc.customer_type = data.get("customer_type") or "Individual"
+    doc.company_name = data.get("company_name")
+    doc.tax_id = data.get("tax_id")
+    doc.company_address = data.get("company_address")
+    doc.company_email = data.get("company_email")
+    doc.contact_person = data.get("contact_person")
+    doc.created_branch = branch
+    doc.pickup_branch = pickup_branch
+    doc.delivery_type = delivery_type
+    doc.delivery_address = data.get("delivery_address")
+    doc.delivery_location_url = data.get("delivery_location_url")
+    doc.latitude = latitude
+    doc.longitude = longitude
+    doc.delivery_notes = data.get("delivery_notes")
+    doc.delivery_fee = delivery_fee
+    doc.priority = data.get("priority") or doc.priority or "normal"
+    doc.scheduled_at = data.get("scheduled_at")
+    doc.required_date = data.get("required_date")
+    doc.required_time = data.get("required_time")
+    doc.pickup_time = data.get("pickup_time")
+    doc.delivery_window_start = data.get("delivery_window_start")
+    doc.delivery_window_end = data.get("delivery_window_end")
+    doc.order_notes = data.get("order_notes") or data.get("order_details")
+    doc.customer_notes = data.get("customer_notes")
+    doc.status = status
+    doc.total_amount = total_amount
+    doc.deposit_amount = deposit_amount
+    doc.remaining_amount = total_amount + delivery_fee - deposit_amount
+    doc.set("items", [_make_item(item) for item in items])
+    doc.save(ignore_permissions=True)
+
+    if delivery_type == "Delivery":
+        _ensure_customer_address(customer, data, latitude, longitude)
+
+    _sync_deposit_payment(doc, deposit_amount, data)
+    doc.reload()
+    doc.save(ignore_permissions=True)
+
+    if old_status != doc.status:
+        note = (
+            _("Order updated and sent for supervisor approval.")
+            if doc.status == ORDER_STATUS_PENDING_APPROVAL
+            else _("Order draft updated.")
+        )
+        make_status_log(doc.name, old_status, doc.status, note)
+    if doc.status == ORDER_STATUS_PENDING_APPROVAL and old_status != ORDER_STATUS_PENDING_APPROVAL:
+        for supervisor in _get_branch_supervisors():
+            create_notification(
+                supervisor,
+                _("New Order Approval"),
+                _("Order {0} is waiting for approval.").format(doc.order_number),
+                doc.name,
+                "order_submitted",
+            )
+
+    response = _order_response(doc)
+    response["message"] = (
+        _("Order updated and sent for supervisor approval.")
+        if doc.status == ORDER_STATUS_PENDING_APPROVAL
+        else _("Order draft updated successfully.")
+    )
+    make_audit_log(
+        "order_updated",
+        reference_doctype="Awamir Order Request",
+        reference_name=doc.name,
+        method="_update_order",
+        payload=data,
+        response=response,
+    )
+    return response
+
+
+def _assert_editable_draft(doc):
+    require_branch_scope(doc.created_branch)
+    if (
+        not is_awamir_admin()
+        and has_permission(PERMISSION_ORDER_VIEW_OWN)
+        and not has_permission(PERMISSION_ORDER_VIEW_BRANCH)
+        and doc.created_by_user != frappe.session.user
+    ):
+        frappe.throw(_("You can only edit drafts created by your user."), frappe.PermissionError)
+    if doc.status != ORDER_STATUS_DRAFT:
+        frappe.throw(_("Only draft orders can be edited."))
+
+
+def _has_edit_payload(data):
+    if not isinstance(data, dict):
+        return False
+    ignored_keys = {"order", "order_id", "idempotency_key"}
+    return any(key not in ignored_keys and value not in (None, "", [], {}) for key, value in data.items())
 
 
 @frappe.whitelist()
@@ -471,6 +648,56 @@ def _record_deposit(order, amount, data):
     ).insert(ignore_permissions=True)
     if cash_closure:
         _recalculate_closure_totals(cash_closure)
+
+
+def _sync_deposit_payment(order, amount, data):
+    from awamir_plus.api.delivery import _get_or_create_open_cash_closure, _recalculate_closure_totals
+
+    payments = frappe.get_all(
+        "Awamir Order Payment",
+        filters={"order": order.name},
+        fields=["name", "status", "cash_closure"],
+        order_by="creation asc",
+    )
+    if not payments:
+        if amount > 0:
+            _record_deposit(order, amount, data)
+        return
+
+    if len(payments) > 1:
+        frappe.throw(_("This draft already has multiple payments and cannot auto-sync the deposit."))
+
+    payment = frappe.get_doc("Awamir Order Payment", payments[0].name)
+    if payment.status not in (
+        PAYMENT_STATUS_RECORDED,
+        PAYMENT_STATUS_IN_DAILY_CLOSURE,
+        PAYMENT_STATUS_RETURNED,
+    ):
+        frappe.throw(_("The deposit can no longer be edited after the cash closure was submitted."))
+
+    closure = payment.cash_closure
+    if amount <= 0:
+        payment.delete(ignore_permissions=True)
+        if closure:
+            _recalculate_closure_totals(closure)
+        return
+
+    payment.customer = order.customer
+    payment.amount = amount
+    payment.payment_method = data.get("payment_method") or "Cash"
+    payment.payment_reference = data.get("payment_reference")
+    payment.receipt_attachment = data.get("receipt_attachment")
+    if not payment.cash_closure:
+        payment.cash_closure = _get_or_create_open_cash_closure(
+            frappe.session.user,
+            "branch_employee",
+        )
+    payment.status = (
+        PAYMENT_STATUS_IN_DAILY_CLOSURE if payment.cash_closure else PAYMENT_STATUS_RECORDED
+    )
+    payment.save(ignore_permissions=True)
+    if payment.cash_closure:
+        _recalculate_closure_totals(payment.cash_closure)
 
 
 def _get_branch_supervisors():

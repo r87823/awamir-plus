@@ -882,6 +882,8 @@ class Order {
     this.fulfillmentType = FulfillmentType.branchPickup,
     this.deliveryDetails = const DeliveryDetailsDraft(),
     this.depositAmount = 0,
+    this.transactionReference = '',
+    this.paymentReceiptPath = '',
     this.remainingAmount = 0,
     this.createdBranch = '',
     this.createdBranchId = '',
@@ -936,6 +938,8 @@ class Order {
   final FulfillmentType fulfillmentType;
   final DeliveryDetailsDraft deliveryDetails;
   final num depositAmount;
+  final String transactionReference;
+  final String paymentReceiptPath;
   final num remainingAmount;
   final String createdBranch;
   final String createdBranchId;
@@ -989,6 +993,8 @@ class Order {
     String? date,
     String? details,
     num? remainingAmount,
+    String? transactionReference,
+    String? paymentReceiptPath,
     String? productionDepartmentId,
     String? productionDepartmentName,
     String? productionDepartmentCode,
@@ -1037,6 +1043,8 @@ class Order {
       fulfillmentType: fulfillmentType,
       deliveryDetails: deliveryDetails,
       depositAmount: depositAmount,
+      transactionReference: transactionReference ?? this.transactionReference,
+      paymentReceiptPath: paymentReceiptPath ?? this.paymentReceiptPath,
       remainingAmount: remainingAmount ?? this.remainingAmount,
       createdBranch: createdBranch,
       createdBranchId: createdBranchId,
@@ -1203,6 +1211,7 @@ class CreateOrderRequest {
 
   ProductDepartment? department;
   final Map<int, OrderLineDraft> lines = {};
+  String editingOrderId = '';
 
   String customerPhone = '';
   String customerName = '';
@@ -1246,6 +1255,7 @@ class CreateOrderRequest {
       (grandTotal - depositAmount).clamp(0, double.infinity);
 
   bool get hasProducts => lines.isNotEmpty;
+  bool get isEditing => editingOrderId.trim().isNotEmpty;
   bool get requiresTransactionReference =>
       paymentMethod == PaymentMethod.card ||
       paymentMethod == PaymentMethod.transfer;

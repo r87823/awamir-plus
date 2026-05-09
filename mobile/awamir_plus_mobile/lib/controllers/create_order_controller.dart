@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../core/errors/app_exception.dart';
@@ -49,27 +51,23 @@ class CreateOrderController extends ChangeNotifier {
     required ProductRepository productRepository,
     required CustomerRepository customerRepository,
     required OrderRepository orderRepository,
+    this.existingOrder,
   }) : _productRepository = productRepository,
        _customerRepository = customerRepository,
        _orderRepository = orderRepository,
-       request = CreateOrderRequest(
-         createdBranch: BranchRef(
-           id: currentUser.branchId,
-           name: currentUser.branchName,
-         ),
-         pickupBranch: BranchRef(
-           id: currentUser.branchId,
-           name: currentUser.branchName,
-         ),
-       ) {
-    request.createdByUserId = currentUser.id;
-    request.createdByName = currentUser.fullName;
+       request = _buildInitialRequest(currentUser, existingOrder) {
     branches = [
       request.createdBranch,
       const BranchRef(id: 'BR-RUH-NKH', name: 'فرع الرياض — النخيل'),
       const BranchRef(id: 'BR-RUH-OLY', name: 'فرع الرياض — العليا'),
       const BranchRef(id: 'BR-JED-SAL', name: 'فرع جدة — السلامة'),
     ];
+    if (existingOrder != null) {
+      customerSearchState = ViewState.success(request.existingCustomer);
+      currentStep = request.department == null
+          ? CreateOrderStep.category
+          : CreateOrderStep.products;
+    }
     loadCategories();
   }
 
@@ -77,6 +75,7 @@ class CreateOrderController extends ChangeNotifier {
   final ProductRepository _productRepository;
   final CustomerRepository _customerRepository;
   final OrderRepository _orderRepository;
+  final Order? existingOrder;
   final CreateOrderRequest request;
 
   ViewState<void> loadState = const ViewState.loading();
@@ -94,6 +93,7 @@ class CreateOrderController extends ChangeNotifier {
 
   int get currentStepIndex => CreateOrderStep.values.indexOf(currentStep);
   int get totalSteps => CreateOrderStep.values.length;
+  bool get isEditing => request.isEditing;
   bool get isSaving => saveState.isLoading;
   bool get isLoading => loadState.isLoading;
   bool get hasError => loadState.isError || saveState.isError;
@@ -116,9 +116,13 @@ class CreateOrderController extends ChangeNotifier {
     notifyListeners();
     try {
       departments = await _productRepository.getCategories();
+      _syncEditingDepartment();
       loadState = departments.isEmpty
           ? const ViewState.empty('لا توجد أقسام متاحة')
           : const ViewState.success(null);
+      if (request.department != null) {
+        unawaited(_hydrateExistingDraftContext());
+      }
     } on AppException catch (error) {
       loadState = ViewState.error(error.message);
     } catch (error) {
@@ -557,6 +561,190 @@ class CreateOrderController extends ChangeNotifier {
     }
     validationMessage = message;
     return false;
+  }
+
+  Future<void> _hydrateExistingDraftContext() async {
+    await _loadExistingDepartmentProducts();
+    await _loadExistingCustomerAddresses();
+  }
+
+  Future<void> _loadExistingDepartmentProducts() async {
+    final department = request.department;
+    if (department == null) return;
+
+    final existingLines = List<OrderLineDraft>.of(request.lineItems);
+    final quantitiesByKey = {
+      for (final line in existingLines)
+        _productKey(line.product): line.quantity,
+    };
+
+    productsState = const ViewState.loading();
+    notifyListeners();
+
+    try {
+      final fetchedProducts = await _productRepository.getProductsByCategory(
+        department.id,
+      );
+      products = _mergeProducts(fetchedProducts, existingLines);
+      request.lines.clear();
+      for (final product in products) {
+        final quantity = quantitiesByKey[_productKey(product)];
+        if (quantity != null) {
+          request.setProductQuantity(product, quantity);
+        }
+      }
+      productsState = products.isEmpty
+          ? const ViewState.empty('لا توجد منتجات في هذا القسم')
+          : ViewState.success(products);
+    } on AppException catch (error) {
+      productsState = ViewState.error(error.message);
+    } catch (error) {
+      productsState = const ViewState.error('تعذر تحميل المنتجات');
+    }
+    notifyListeners();
+  }
+
+  Future<void> _loadExistingCustomerAddresses() async {
+    final customer = request.existingCustomer;
+    if (customer == null || customer.id.trim().isEmpty) return;
+
+    try {
+      customerAddresses = await _customerRepository.getCustomerAddresses(
+        customer.id,
+      );
+      notifyListeners();
+    } on AppException {
+      customerAddresses = [];
+      notifyListeners();
+    } catch (_) {
+      customerAddresses = [];
+      notifyListeners();
+    }
+  }
+
+  void _syncEditingDepartment() {
+    final department = request.department;
+    if (department == null) return;
+    for (final candidate in departments) {
+      if (candidate.id == department.id) {
+        request.department = candidate;
+        break;
+      }
+    }
+  }
+
+  List<Product> _mergeProducts(
+    List<Product> fetchedProducts,
+    List<OrderLineDraft> existingLines,
+  ) {
+    if (fetchedProducts.isEmpty) {
+      return existingLines.map((line) => line.product).toList();
+    }
+    final merged = List<Product>.of(fetchedProducts);
+    final seenKeys = merged.map(_productKey).toSet();
+    for (final line in existingLines) {
+      final key = _productKey(line.product);
+      if (seenKeys.add(key)) {
+        merged.add(line.product);
+      }
+    }
+    return merged;
+  }
+
+  String _productKey(Product product) {
+    final itemCode = product.itemCode.trim();
+    return itemCode.isNotEmpty ? itemCode : product.name.trim();
+  }
+
+  static CreateOrderRequest _buildInitialRequest(
+    AppUser currentUser,
+    Order? existingOrder,
+  ) {
+    final branch = BranchRef(
+      id: currentUser.branchId,
+      name: currentUser.branchName,
+    );
+    final request = CreateOrderRequest(
+      createdBranch: branch,
+      pickupBranch: branch,
+    );
+    request.createdByUserId = currentUser.id;
+    request.createdByName = currentUser.fullName;
+
+    if (existingOrder == null) {
+      return request;
+    }
+
+    request.editingOrderId = existingOrder.id;
+    request.department = existingOrder.categoryId.trim().isEmpty
+        ? null
+        : ProductDepartment(
+            id: existingOrder.categoryId,
+            name: existingOrder.categoryName.trim().isEmpty
+                ? existingOrder.categoryId
+                : existingOrder.categoryName,
+            icon: Icons.category_outlined,
+          );
+    for (final line in existingOrder.lineItems) {
+      request.setProductQuantity(line.product, line.quantity);
+    }
+    request.customerPhone = existingOrder.customerPhone;
+    request.customerName = existingOrder.customer;
+    request.customerType = existingOrder.customerType;
+    request.companyName = existingOrder.companyName;
+    request.taxNumber = existingOrder.taxNumber;
+    request.companyAddress = existingOrder.companyAddress;
+    request.companyEmail = existingOrder.companyEmail;
+    request.companyContactPerson = existingOrder.companyContactPerson;
+    request.existingCustomer = existingOrder.erpnextCustomerId.trim().isEmpty
+        ? null
+        : Customer(
+            id: existingOrder.erpnextCustomerId,
+            name: existingOrder.customer,
+            phone: existingOrder.customerPhone,
+            isCompany: existingOrder.customerType == CustomerType.company,
+            companyName: existingOrder.companyName,
+            taxNumber: existingOrder.taxNumber,
+            address: existingOrder.companyAddress,
+            email: existingOrder.companyEmail,
+            contactPerson: existingOrder.companyContactPerson,
+          );
+    request.orderDetails = existingOrder.details;
+    request.customerNotes = existingOrder.customerNotes;
+    request.pickupDate = existingOrder.pickupDate;
+    request.pickupTime = existingOrder.pickupTime;
+    request.attachments.addAll(existingOrder.attachments);
+    request.fulfillmentType = existingOrder.fulfillmentType;
+    request.createdBranch = BranchRef(
+      id: existingOrder.createdBranchId.trim().isEmpty
+          ? branch.id
+          : existingOrder.createdBranchId,
+      name: existingOrder.createdBranch.trim().isEmpty
+          ? branch.name
+          : existingOrder.createdBranch,
+    );
+    request.pickupBranch = BranchRef(
+      id: existingOrder.pickupBranchId.trim().isEmpty
+          ? request.createdBranch.id
+          : existingOrder.pickupBranchId,
+      name: existingOrder.pickupBranch.trim().isEmpty
+          ? request.createdBranch.name
+          : existingOrder.pickupBranch,
+    );
+    request.deliveryDetails = existingOrder.deliveryDetails;
+    request.depositAmount = existingOrder.depositAmount;
+    request.paymentMethod = existingOrder.paymentMethod;
+    request.transactionReference = existingOrder.transactionReference;
+    if (existingOrder.paymentReceiptPath.trim().isNotEmpty) {
+      request.paymentReceipt = OrderAttachmentDraft(
+        id: '${existingOrder.id}-receipt',
+        name: 'receipt.jpg',
+        path: existingOrder.paymentReceiptPath,
+        type: OrderAttachmentType.receipt,
+        sizeInBytes: 0,
+      );
+    }
+    return request;
   }
 }
 

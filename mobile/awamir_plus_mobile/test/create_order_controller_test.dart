@@ -81,6 +81,43 @@ void main() {
     expect(pendingOrder!.id, startsWith('ORD-2026-'));
     expect(pendingOrder.status, OrderStatus.pendingSupervisorApproval);
   });
+
+  test('تحميل مسودة للتعديل يعبئ البيانات ويحفظ نفس رقم الطلب', () async {
+    final mockService = MockService();
+    final existingDraft = await mockService.saveDraft(_seedRequest());
+    final controller = CreateOrderController(
+      currentUser: _employee,
+      productRepository: ProductRepository(
+        mockService: mockService,
+        useMockData: true,
+      ),
+      customerRepository: CustomerRepository(
+        mockService: mockService,
+        useMockData: true,
+      ),
+      orderRepository: OrderRepository(
+        mockService: mockService,
+        useMockData: true,
+      ),
+      existingOrder: existingDraft,
+    );
+    addTearDown(controller.dispose);
+
+    await controller.loadCategories();
+
+    expect(controller.isEditing, isTrue);
+    expect(controller.request.editingOrderId, existingDraft.id);
+    expect(controller.request.customerPhone, existingDraft.customerPhone);
+    expect(controller.request.lineItems, isNotEmpty);
+
+    controller.updateCustomerName('عميل بعد التعديل');
+    final updatedDraft = await controller.saveDraft();
+
+    expect(updatedDraft, isNotNull);
+    expect(updatedDraft!.id, existingDraft.id);
+    expect(updatedDraft.customer, 'عميل بعد التعديل');
+    expect(updatedDraft.status, OrderStatus.draft);
+  });
 }
 
 Future<CreateOrderController> _createController() async {
@@ -115,6 +152,47 @@ Future<CreateOrderController> _createValidController() async {
   controller.updatePickupTime(const TimeOfDay(hour: 12, minute: 30));
   controller.updatePayment(depositAmount: 10, method: PaymentMethod.cash);
   return controller;
+}
+
+CreateOrderRequest _seedRequest() {
+  final request = CreateOrderRequest(
+    createdBranch: const BranchRef(
+      id: 'BR-RUH-MUR',
+      name: 'فرع الرياض — المروج',
+    ),
+    pickupBranch: const BranchRef(
+      id: 'BR-RUH-MUR',
+      name: 'فرع الرياض — المروج',
+    ),
+  );
+  request
+    ..department = const ProductDepartment(
+      id: 'DEP-SPECIAL',
+      name: 'طلبات خاصة',
+      icon: Icons.category,
+    )
+    ..createdByUserId = _employee.id
+    ..createdByName = _employee.fullName
+    ..customerPhone = '0551234567'
+    ..customerName = 'عميل المسودة'
+    ..orderDetails = 'تفاصيل المسودة'
+    ..pickupDate = DateTime.now().add(const Duration(days: 2))
+    ..pickupTime = const TimeOfDay(hour: 14, minute: 0)
+    ..depositAmount = 15
+    ..paymentMethod = PaymentMethod.cash;
+  request.setProductQuantity(
+    const Product(
+      id: 1,
+      itemCode: 'AWAMIR-CAKE',
+      departmentId: 'DEP-SPECIAL',
+      name: 'كيكة مخصصة',
+      description: 'كيكة مخصصة',
+      price: 120,
+      imageUrl: '',
+    ),
+    1,
+  );
+  return request;
 }
 
 const _employee = AppUser(

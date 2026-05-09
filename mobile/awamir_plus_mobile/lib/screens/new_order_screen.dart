@@ -21,10 +21,12 @@ class NewOrderScreen extends StatefulWidget {
     super.key,
     required this.controller,
     required this.onFinished,
+    this.existingOrder,
   });
 
   final AppController controller;
   final VoidCallback onFinished;
+  final Order? existingOrder;
 
   @override
   State<NewOrderScreen> createState() => _NewOrderScreenState();
@@ -61,7 +63,9 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
       productRepository: widget.controller.productRepository,
       customerRepository: widget.controller.customerRepository,
       orderRepository: widget.controller.orderRepository,
+      existingOrder: widget.existingOrder,
     );
+    _syncAllControllers();
   }
 
   @override
@@ -105,8 +109,12 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
                 padding: EdgeInsets.zero,
                 children: [
                   AppHeader(
-                    title: 'إنشاء طلب جديد',
-                    subtitle: 'طلب متكامل بخطوات واضحة',
+                    title: widget.existingOrder == null
+                        ? 'إنشاء طلب جديد'
+                        : 'تعديل المسودة',
+                    subtitle: widget.existingOrder == null
+                        ? 'طلب متكامل بخطوات واضحة'
+                        : 'راجع بيانات الطلب ثم احفظها أو أرسلها للموافقة',
                     notificationCount: widget.controller.unreadNotifications,
                   ),
                   const SizedBox(height: 14),
@@ -130,6 +138,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
             ),
             _FlowFooter(
               flow: _flow,
+              isEditing: widget.existingOrder != null,
               onPrevious: _flow.previousStep,
               onNext: () {
                 if (!_flow.nextStep()) _showValidation();
@@ -894,7 +903,13 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          draft ? 'تم حفظ الطلب كمسودة بنجاح' : 'تم إرسال الطلب للموافقة بنجاح',
+          draft
+              ? (widget.existingOrder == null
+                    ? 'تم حفظ الطلب كمسودة بنجاح'
+                    : 'تم تحديث المسودة بنجاح')
+              : (widget.existingOrder == null
+                    ? 'تم إرسال الطلب للموافقة بنجاح'
+                    : 'تم تحديث الطلب وإرساله للموافقة بنجاح'),
         ),
       ),
     );
@@ -958,6 +973,21 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
       _deliveryFeeController,
       delivery.deliveryFee == 0 ? '' : delivery.deliveryFee.toString(),
     );
+  }
+
+  void _syncAllControllers() {
+    _setText(_phoneController, _flow.request.customerPhone);
+    _syncCustomerControllers();
+    _setText(_detailsController, _flow.request.orderDetails);
+    _setText(_notesController, _flow.request.customerNotes);
+    _syncDeliveryControllers();
+    _setText(
+      _depositController,
+      _flow.request.depositAmount == 0
+          ? ''
+          : _flow.request.depositAmount.toString(),
+    );
+    _setText(_transactionController, _flow.request.transactionReference);
   }
 
   void _syncCoordinatesOnly() {
@@ -1590,6 +1620,7 @@ class _InlineMessage extends StatelessWidget {
 class _FlowFooter extends StatelessWidget {
   const _FlowFooter({
     required this.flow,
+    required this.isEditing,
     required this.onPrevious,
     required this.onNext,
     required this.onSaveDraft,
@@ -1597,6 +1628,7 @@ class _FlowFooter extends StatelessWidget {
   });
 
   final CreateOrderController flow;
+  final bool isEditing;
   final VoidCallback onPrevious;
   final VoidCallback onNext;
   final VoidCallback onSaveDraft;
@@ -1662,7 +1694,7 @@ class _FlowFooter extends StatelessWidget {
                     child: OutlinedButton.icon(
                       onPressed: flow.isSaving ? null : onSaveDraft,
                       icon: const Icon(Icons.save_outlined),
-                      label: const Text('مسودة'),
+                      label: Text(isEditing ? 'حفظ التعديل' : 'مسودة'),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -1676,7 +1708,7 @@ class _FlowFooter extends StatelessWidget {
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
                           : const Icon(Icons.send_outlined),
-                      label: const Text('إرسال'),
+                      label: Text(isEditing ? 'إرسال بعد التعديل' : 'إرسال'),
                     ),
                   ),
                 ],

@@ -1064,6 +1064,7 @@ class ErpnextService implements AuthService {
   ) {
     final delivery = request.deliveryDetails;
     return {
+      if (request.isEditing) 'order': request.editingOrderId.trim(),
       'submit_for_approval': submitForApproval,
       'customer': request.existingCustomer?.id,
       'customer_phone': normalizePhoneInput(request.customerPhone),
@@ -1192,6 +1193,8 @@ class ErpnextService implements AuthService {
         deliveryFee: deliveryFee,
       ),
       depositAmount: _number(data['deposit_amount']),
+      transactionReference: _string(data['payment_reference']),
+      paymentReceiptPath: _string(data['receipt_attachment']),
       remainingAmount: _number(data['remaining_amount']),
       createdBranch: _string(data['created_branch']),
       createdBranchId: _string(data['created_branch']),

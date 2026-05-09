@@ -7,6 +7,7 @@ import '../models/app_models.dart';
 import '../widgets/app_header.dart';
 import '../widgets/order_card.dart';
 import '../widgets/state_views.dart';
+import 'new_order_screen.dart';
 import 'order_detail_screen.dart';
 
 class OrdersScreen extends StatefulWidget {
@@ -101,6 +102,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
     final canSubmitDraft =
         order.status == OrderStatus.draft &&
         AccessControl.canCreateOrder(widget.controller.currentUser);
+    final canEditDraft = canSubmitDraft;
     final isLoading = widget.controller.isActionLoading;
     return OrderCard(
       order: order,
@@ -110,6 +112,11 @@ class _OrdersScreenState extends State<OrdersScreen> {
           onPressed: () => _openDetails(order),
           child: const Text('التفاصيل'),
         ),
+        if (canEditDraft)
+          OutlinedButton(
+            onPressed: isLoading ? null : () => _editDraft(order),
+            child: const Text('تعديل'),
+          ),
         if (canSubmitDraft)
           FilledButton(
             onPressed: isLoading ? null : () => _confirmSubmitDraft(order),
@@ -119,7 +126,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                     height: 18,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Text('إرسال للموافقة'),
+                : const Text('إرسال'),
           ),
       ],
     );
@@ -129,6 +136,20 @@ class _OrdersScreenState extends State<OrdersScreen> {
     Navigator.of(
       context,
     ).push(MaterialPageRoute(builder: (_) => OrderDetailScreen(order: order)));
+  }
+
+  Future<void> _editDraft(Order order) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => NewOrderScreen(
+          controller: widget.controller,
+          existingOrder: order,
+          onFinished: () => Navigator.of(context).pop(),
+        ),
+      ),
+    );
+    if (!mounted) return;
+    setState(() {});
   }
 
   Future<void> _confirmSubmitDraft(Order order) async {
