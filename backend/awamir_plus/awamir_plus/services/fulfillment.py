@@ -217,7 +217,7 @@ def _get_department_mapping(filters):
 
 def _create_department_work_order(order_doc, department, items):
     department_doc = frappe.get_doc("Awamir Production Department", department)
-    capacity = _department_capacity_snapshot(department)
+    capacity = _department_capacity_snapshot(department, order_doc.required_date)
     work_order = frappe.get_doc(
         {
             "doctype": "Awamir Department Work Order",
@@ -246,15 +246,15 @@ def _create_department_work_order(order_doc, department, items):
     return work_order
 
 
-def _department_capacity_snapshot(department):
+def _department_capacity_snapshot(department, required_date=None):
     daily_capacity = frappe.db.get_value(
         "Awamir Production Department",
         department,
         "daily_capacity",
     ) or 0
-    open_count = frappe.db.count(
+    open_rows = frappe.get_all(
         "Awamir Department Work Order",
-        {
+        filters={
             "department": department,
             "status": [
                 "in",
@@ -266,7 +266,9 @@ def _department_capacity_snapshot(department):
                 ],
             ],
         },
+        fields=["order"],
     )
+    open_count = _count_work_orders_for_date(open_rows, required_date)
     warning = None
     if daily_capacity and open_count + 1 > daily_capacity:
         warning = _("Department capacity exceeded: {0}/{1} open work orders.").format(
@@ -278,6 +280,20 @@ def _department_capacity_snapshot(department):
         "open_work_orders_count": open_count + 1,
         "warning": warning,
     }
+
+
+def _count_work_orders_for_date(open_rows, required_date=None):
+    if not required_date:
+        return len(open_rows)
+    order_names = list({row.order for row in open_rows if row.order})
+    if not order_names:
+        return 0
+    matching_orders = frappe.get_all(
+        "Awamir Order Request",
+        filters={"name": ["in", order_names], "required_date": required_date},
+        pluck="name",
+    )
+    return len(matching_orders)
 
 
 def _work_order_item(item):

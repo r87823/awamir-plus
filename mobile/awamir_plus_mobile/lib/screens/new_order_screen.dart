@@ -462,6 +462,104 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
               ),
             ],
           ),
+          const SizedBox(height: 14),
+          Align(
+            alignment: Alignment.centerRight,
+            child: Text(
+              'الأولوية',
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                color: AppColors.navy,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: OrderPriority.values.map((priority) {
+              return ChoiceChip(
+                label: Text(priority.label),
+                selected: _flow.request.priority == priority,
+                onSelected: (_) => _flow.updatePriority(priority),
+              );
+            }).toList(),
+          ),
+          if (_flow.request.priority == OrderPriority.scheduled) ...[
+            const SizedBox(height: 12),
+            _PickerTile(
+              icon: Icons.event_available_outlined,
+              label: 'موعد الجدولة الداخلي',
+              value: _flow.request.scheduledAt == null
+                  ? 'اختر موعد الجدولة'
+                  : _formatDateTime(_flow.request.scheduledAt!),
+              onTap: () async {
+                final value = await _pickDateTime(_flow.request.scheduledAt);
+                if (value != null) _flow.updateScheduledAt(value);
+              },
+            ),
+          ],
+          const SizedBox(height: 12),
+          _PickerTile(
+            icon: Icons.av_timer_outlined,
+            label: 'وقت جاهزية الفرع / المطبخ',
+            value: _flow.request.pickupTimeOverride == null
+                ? 'اختياري'
+                : formatTime(_flow.request.pickupTimeOverride!),
+            onTap: () async {
+              final time = await showTimePicker(
+                context: context,
+                initialTime:
+                    _flow.request.pickupTimeOverride ??
+                    _flow.request.pickupTime ??
+                    TimeOfDay.now(),
+              );
+              if (time != null) _flow.updatePickupTimeOverride(time);
+            },
+          ),
+          if (_flow.request.fulfillmentType ==
+              FulfillmentType.customerDelivery) ...[
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: _PickerTile(
+                    icon: Icons.timeline_outlined,
+                    label: 'بداية نافذة التوصيل',
+                    value: _flow.request.deliveryWindowStart == null
+                        ? 'اختياري'
+                        : _formatDateTime(_flow.request.deliveryWindowStart!),
+                    onTap: () async {
+                      final value = await _pickDateTime(
+                        _flow.request.deliveryWindowStart,
+                      );
+                      if (value != null) {
+                        _flow.updateDeliveryWindow(start: value);
+                      }
+                    },
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _PickerTile(
+                    icon: Icons.timeline_outlined,
+                    label: 'نهاية نافذة التوصيل',
+                    value: _flow.request.deliveryWindowEnd == null
+                        ? 'اختياري'
+                        : _formatDateTime(_flow.request.deliveryWindowEnd!),
+                    onTap: () async {
+                      final value = await _pickDateTime(
+                        _flow.request.deliveryWindowEnd,
+                      );
+                      if (value != null) {
+                        _flow.updateDeliveryWindow(end: value);
+                      }
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );
@@ -799,6 +897,28 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
                     formatTime(request.pickupTime!),
                 ].join(' — '),
               ),
+              _SummaryRow(label: 'الأولوية', value: request.priority.label),
+              if (request.scheduledAt != null)
+                _SummaryRow(
+                  label: 'موعد الجدولة',
+                  value: _formatDateTime(request.scheduledAt!),
+                ),
+              if (request.pickupTimeOverride != null)
+                _SummaryRow(
+                  label: 'وقت الجاهزية',
+                  value: formatTime(request.pickupTimeOverride!),
+                ),
+              if (request.deliveryWindowStart != null ||
+                  request.deliveryWindowEnd != null)
+                _SummaryRow(
+                  label: 'نافذة التوصيل',
+                  value: [
+                    if (request.deliveryWindowStart != null)
+                      _formatDateTime(request.deliveryWindowStart!),
+                    if (request.deliveryWindowEnd != null)
+                      _formatDateTime(request.deliveryWindowEnd!),
+                  ].join(' — '),
+                ),
               _SummaryRow(
                 label: 'طريقة الاستلام',
                 value: request.fulfillmentType.label,
@@ -865,6 +985,29 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
       initialTime: _flow.request.pickupTime ?? TimeOfDay.now(),
     );
     if (time != null) _flow.updatePickupTime(time);
+  }
+
+  Future<DateTime?> _pickDateTime(DateTime? current) async {
+    final now = DateTime.now();
+    final date = await showDatePicker(
+      context: context,
+      initialDate: current ?? _flow.request.pickupDate ?? now,
+      firstDate: DateUtils.dateOnly(now),
+      lastDate: now.add(const Duration(days: 365)),
+    );
+    if (date == null || !mounted) return null;
+    final time = await showTimePicker(
+      context: context,
+      initialTime: current == null
+          ? TimeOfDay.now()
+          : TimeOfDay(hour: current.hour, minute: current.minute),
+    );
+    if (time == null) return null;
+    return DateTime(date.year, date.month, date.day, time.hour, time.minute);
+  }
+
+  String _formatDateTime(DateTime value) {
+    return '${formatDate(value)} — ${formatTime(TimeOfDay(hour: value.hour, minute: value.minute))}';
   }
 
   Future<void> _handleSave({required bool draft}) async {

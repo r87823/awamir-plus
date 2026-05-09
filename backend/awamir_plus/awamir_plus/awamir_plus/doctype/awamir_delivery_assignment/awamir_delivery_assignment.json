@@ -5,7 +5,7 @@
   "custom": 0,
   "allow_rename": 0,
   "track_changes": 1,
-  "field_order": ["order", "driver", "assigned_by", "assigned_at", "status", "picked_up_at", "out_for_delivery_at", "delivered_at", "failed_at", "failure_reason", "proof_section", "received_by_name", "proof_image", "signature_url", "qr_scanned", "driver_notes"],
+  "field_order": ["order", "driver", "assigned_by", "assigned_at", "status", "picked_up_at", "out_for_delivery_at", "delivered_at", "failed_at", "failure_reason", "proof_section", "received_by_name", "proof_image", "signature_url", "qr_scanned", "driver_notes", "cancellation_section", "is_cancelled", "cancelled_at", "cancelled_by", "cancellation_reason"],
   "fields": [
     {"fieldname": "order", "label": "Order", "fieldtype": "Link", "options": "Awamir Order Request", "reqd": 1, "in_list_view": 1},
     {"fieldname": "driver", "label": "Driver", "fieldtype": "Link", "options": "User", "reqd": 1, "in_list_view": 1},
@@ -22,7 +22,12 @@
     {"fieldname": "proof_image", "label": "Proof Image", "fieldtype": "Attach Image"},
     {"fieldname": "signature_url", "label": "Signature URL", "fieldtype": "Data"},
     {"fieldname": "qr_scanned", "label": "QR Scanned", "fieldtype": "Check", "default": 0},
-    {"fieldname": "driver_notes", "label": "Driver Notes", "fieldtype": "Small Text"}
+    {"fieldname": "driver_notes", "label": "Driver Notes", "fieldtype": "Small Text"},
+    {"fieldname": "cancellation_section", "label": "Cancellation", "fieldtype": "Section Break"},
+    {"fieldname": "is_cancelled", "label": "Is Cancelled", "fieldtype": "Check", "default": 0, "read_only": 1},
+    {"fieldname": "cancelled_at", "label": "Cancelled At", "fieldtype": "Datetime", "read_only": 1},
+    {"fieldname": "cancelled_by", "label": "Cancelled By", "fieldtype": "Link", "options": "User", "read_only": 1},
+    {"fieldname": "cancellation_reason", "label": "Cancellation Reason", "fieldtype": "Small Text", "read_only": 1}
   ],
   "permissions": [
     {"role": "Awamir Distribution Manager", "read": 1, "write": 1, "create": 1, "permlevel": 0},

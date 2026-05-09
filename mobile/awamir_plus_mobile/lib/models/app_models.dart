@@ -67,6 +67,266 @@ extension OrderStatusDetails on OrderStatus {
   }
 }
 
+enum OperationalOrderStatus {
+  draft,
+  pendingApproval,
+  approved,
+  inFulfillment,
+  ready,
+  delivered,
+  completed,
+  cancelled,
+  rejected,
+  returnedForEdit,
+}
+
+extension OperationalOrderStatusDetails on OperationalOrderStatus {
+  String get label {
+    switch (this) {
+      case OperationalOrderStatus.draft:
+        return 'مسودة';
+      case OperationalOrderStatus.pendingApproval:
+        return 'بانتظار الاعتماد';
+      case OperationalOrderStatus.approved:
+        return 'معتمد';
+      case OperationalOrderStatus.inFulfillment:
+        return 'قيد التنفيذ';
+      case OperationalOrderStatus.ready:
+        return 'جاهز';
+      case OperationalOrderStatus.delivered:
+        return 'مسلّم';
+      case OperationalOrderStatus.completed:
+        return 'مكتمل';
+      case OperationalOrderStatus.cancelled:
+        return 'ملغي';
+      case OperationalOrderStatus.rejected:
+        return 'مرفوض';
+      case OperationalOrderStatus.returnedForEdit:
+        return 'معاد للتعديل';
+    }
+  }
+}
+
+enum ProductionFlowStatus {
+  notStarted,
+  splitByDepartment,
+  departmentWorkOrdersCreated,
+  inProduction,
+  partiallyReady,
+  ready,
+  delayed,
+  rejected,
+}
+
+extension ProductionFlowStatusDetails on ProductionFlowStatus {
+  String get label {
+    switch (this) {
+      case ProductionFlowStatus.notStarted:
+        return 'لم يبدأ';
+      case ProductionFlowStatus.splitByDepartment:
+        return 'مقسّم حسب الأقسام';
+      case ProductionFlowStatus.departmentWorkOrdersCreated:
+        return 'تم إنشاء أوامر العمل';
+      case ProductionFlowStatus.inProduction:
+        return 'قيد الإنتاج';
+      case ProductionFlowStatus.partiallyReady:
+        return 'جاهز جزئياً';
+      case ProductionFlowStatus.ready:
+        return 'جاهز';
+      case ProductionFlowStatus.delayed:
+        return 'متأخر';
+      case ProductionFlowStatus.rejected:
+        return 'مرفوض';
+    }
+  }
+}
+
+enum PackingStatus { notRequired, waiting, readyForPacking, packed, ready }
+
+extension PackingStatusDetails on PackingStatus {
+  String get label {
+    switch (this) {
+      case PackingStatus.notRequired:
+        return 'غير مطلوب';
+      case PackingStatus.waiting:
+        return 'بانتظار التغليف';
+      case PackingStatus.readyForPacking:
+        return 'جاهز للتغليف';
+      case PackingStatus.packed:
+        return 'تم التغليف';
+      case PackingStatus.ready:
+        return 'جاهز';
+    }
+  }
+}
+
+enum DeliveryFlowStatus {
+  notRequired,
+  waitingBatch,
+  addedToDeliveryBatch,
+  assignedToDriver,
+  pickedUp,
+  outForDelivery,
+  delivered,
+  partiallyDelivered,
+  returned,
+}
+
+extension DeliveryFlowStatusDetails on DeliveryFlowStatus {
+  String get label {
+    switch (this) {
+      case DeliveryFlowStatus.notRequired:
+        return 'غير مطلوب';
+      case DeliveryFlowStatus.waitingBatch:
+        return 'بانتظار دفعة توصيل';
+      case DeliveryFlowStatus.addedToDeliveryBatch:
+        return 'ضمن دفعة توصيل';
+      case DeliveryFlowStatus.assignedToDriver:
+        return 'مسند للسائق';
+      case DeliveryFlowStatus.pickedUp:
+        return 'استلمه السائق';
+      case DeliveryFlowStatus.outForDelivery:
+        return 'في الطريق';
+      case DeliveryFlowStatus.delivered:
+        return 'تم التسليم';
+      case DeliveryFlowStatus.partiallyDelivered:
+        return 'تسليم جزئي';
+      case DeliveryFlowStatus.returned:
+        return 'راجع';
+    }
+  }
+}
+
+enum OrderPaymentFlowStatus {
+  unpaid,
+  partiallyPaid,
+  paid,
+  cashPending,
+  cashClosed,
+  refunded,
+}
+
+extension OrderPaymentFlowStatusDetails on OrderPaymentFlowStatus {
+  String get label {
+    switch (this) {
+      case OrderPaymentFlowStatus.unpaid:
+        return 'غير مدفوع';
+      case OrderPaymentFlowStatus.partiallyPaid:
+        return 'مدفوع جزئياً';
+      case OrderPaymentFlowStatus.paid:
+        return 'مدفوع';
+      case OrderPaymentFlowStatus.cashPending:
+        return 'العهدة معلقة';
+      case OrderPaymentFlowStatus.cashClosed:
+        return 'العهدة مغلقة';
+      case OrderPaymentFlowStatus.refunded:
+        return 'مسترد';
+    }
+  }
+}
+
+enum AccountingFlowStatus {
+  notPosted,
+  salesOrderCreated,
+  draftInvoiceCreated,
+  invoiceSubmitted,
+  paymentSubmitted,
+  accountingPosted,
+}
+
+extension AccountingFlowStatusDetails on AccountingFlowStatus {
+  String get label {
+    switch (this) {
+      case AccountingFlowStatus.notPosted:
+        return 'غير مرحل';
+      case AccountingFlowStatus.salesOrderCreated:
+        return 'تم إنشاء أمر البيع';
+      case AccountingFlowStatus.draftInvoiceCreated:
+        return 'تم إنشاء فاتورة مسودة';
+      case AccountingFlowStatus.invoiceSubmitted:
+        return 'تم اعتماد الفاتورة';
+      case AccountingFlowStatus.paymentSubmitted:
+        return 'تم اعتماد الدفعة';
+      case AccountingFlowStatus.accountingPosted:
+        return 'مرحل محاسبياً';
+    }
+  }
+}
+
+enum OrderPriority { normal, urgent, vip, scheduled }
+
+extension OrderPriorityDetails on OrderPriority {
+  String get key {
+    switch (this) {
+      case OrderPriority.normal:
+        return 'normal';
+      case OrderPriority.urgent:
+        return 'urgent';
+      case OrderPriority.vip:
+        return 'vip';
+      case OrderPriority.scheduled:
+        return 'scheduled';
+    }
+  }
+
+  String get label {
+    switch (this) {
+      case OrderPriority.normal:
+        return 'عادي';
+      case OrderPriority.urgent:
+        return 'عاجل';
+      case OrderPriority.vip:
+        return 'VIP';
+      case OrderPriority.scheduled:
+        return 'مجدول';
+    }
+  }
+}
+
+enum ExceptionReasonCategory { production, delivery, payment, customer }
+
+extension ExceptionReasonCategoryDetails on ExceptionReasonCategory {
+  String get key {
+    switch (this) {
+      case ExceptionReasonCategory.production:
+        return 'production';
+      case ExceptionReasonCategory.delivery:
+        return 'delivery';
+      case ExceptionReasonCategory.payment:
+        return 'payment';
+      case ExceptionReasonCategory.customer:
+        return 'customer';
+    }
+  }
+
+  String get label {
+    switch (this) {
+      case ExceptionReasonCategory.production:
+        return 'الإنتاج';
+      case ExceptionReasonCategory.delivery:
+        return 'التوصيل';
+      case ExceptionReasonCategory.payment:
+        return 'الدفع والعهد';
+      case ExceptionReasonCategory.customer:
+        return 'العميل';
+    }
+  }
+}
+
+class ExceptionReason {
+  const ExceptionReason({
+    required this.code,
+    required this.category,
+    required this.label,
+    this.description = '',
+  });
+
+  final String code;
+  final ExceptionReasonCategory category;
+  final String label;
+  final String description;
+}
+
 enum PaymentMethod { cash, card, transfer, other }
 
 extension PaymentMethodDetails on PaymentMethod {
@@ -864,6 +1124,17 @@ class Order {
     required this.date,
     required this.progress,
     required this.paymentMethod,
+    this.orderStatus = OperationalOrderStatus.draft,
+    this.productionStatus = ProductionFlowStatus.notStarted,
+    this.packingStatus = PackingStatus.waiting,
+    this.deliveryStatus = DeliveryFlowStatus.notRequired,
+    this.paymentStatus = OrderPaymentFlowStatus.unpaid,
+    this.accountingStatus = AccountingFlowStatus.notPosted,
+    this.priority = OrderPriority.normal,
+    this.scheduledAt,
+    this.pickupTimeOverride,
+    this.deliveryWindowStart,
+    this.deliveryWindowEnd,
     this.customerPhone = '',
     this.customerType = CustomerType.individual,
     this.companyName = '',
@@ -920,6 +1191,17 @@ class Order {
   final String date;
   final int progress;
   final PaymentMethod paymentMethod;
+  final OperationalOrderStatus orderStatus;
+  final ProductionFlowStatus productionStatus;
+  final PackingStatus packingStatus;
+  final DeliveryFlowStatus deliveryStatus;
+  final OrderPaymentFlowStatus paymentStatus;
+  final AccountingFlowStatus accountingStatus;
+  final OrderPriority priority;
+  final DateTime? scheduledAt;
+  final TimeOfDay? pickupTimeOverride;
+  final DateTime? deliveryWindowStart;
+  final DateTime? deliveryWindowEnd;
   final String customerPhone;
   final CustomerType customerType;
   final String companyName;
@@ -992,6 +1274,17 @@ class Order {
     int? progress,
     String? date,
     String? details,
+    OperationalOrderStatus? orderStatus,
+    ProductionFlowStatus? productionStatus,
+    PackingStatus? packingStatus,
+    DeliveryFlowStatus? deliveryStatus,
+    OrderPaymentFlowStatus? paymentStatus,
+    AccountingFlowStatus? accountingStatus,
+    OrderPriority? priority,
+    DateTime? scheduledAt,
+    TimeOfDay? pickupTimeOverride,
+    DateTime? deliveryWindowStart,
+    DateTime? deliveryWindowEnd,
     num? remainingAmount,
     String? transactionReference,
     String? paymentReceiptPath,
@@ -1025,6 +1318,17 @@ class Order {
       date: date ?? this.date,
       progress: progress ?? this.progress,
       paymentMethod: paymentMethod,
+      orderStatus: orderStatus ?? this.orderStatus,
+      productionStatus: productionStatus ?? this.productionStatus,
+      packingStatus: packingStatus ?? this.packingStatus,
+      deliveryStatus: deliveryStatus ?? this.deliveryStatus,
+      paymentStatus: paymentStatus ?? this.paymentStatus,
+      accountingStatus: accountingStatus ?? this.accountingStatus,
+      priority: priority ?? this.priority,
+      scheduledAt: scheduledAt ?? this.scheduledAt,
+      pickupTimeOverride: pickupTimeOverride ?? this.pickupTimeOverride,
+      deliveryWindowStart: deliveryWindowStart ?? this.deliveryWindowStart,
+      deliveryWindowEnd: deliveryWindowEnd ?? this.deliveryWindowEnd,
       customerPhone: customerPhone,
       customerType: customerType,
       companyName: companyName,
@@ -1227,6 +1531,11 @@ class CreateOrderRequest {
   String customerNotes = '';
   DateTime? pickupDate;
   TimeOfDay? pickupTime;
+  OrderPriority priority = OrderPriority.normal;
+  DateTime? scheduledAt;
+  TimeOfDay? pickupTimeOverride;
+  DateTime? deliveryWindowStart;
+  DateTime? deliveryWindowEnd;
 
   final List<OrderAttachmentDraft> attachments = [];
 

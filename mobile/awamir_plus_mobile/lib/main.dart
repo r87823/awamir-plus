@@ -149,7 +149,7 @@ class _HomeShellState extends State<HomeShell> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      extendBody: false,
+      extendBody: true,
       body: AnimatedBuilder(
         animation: _controller,
         builder: (context, _) {
@@ -312,8 +312,8 @@ class _BottomNav extends StatelessWidget {
         ? features.where((item) => item != AppFeature.createOrder).toList()
         : features;
     final bottomInset = MediaQuery.paddingOf(context).bottom;
-    final height = 118.0 + bottomInset;
-    final itemBottom = bottomInset > 0 ? bottomInset + 8.0 : 10.0;
+    final height = 104.0 + bottomInset;
+    final itemBottom = bottomInset > 20 ? bottomInset - 18.0 : 8.0;
 
     return SizedBox(
       height: height,
@@ -334,7 +334,7 @@ class _BottomNav extends StatelessWidget {
               children: [
                 for (var index = 0; index < sideItems.length; index++) ...[
                   if (hasCreateOrder && index == 2)
-                    const Expanded(child: SizedBox(height: 74)),
+                    const Expanded(child: SizedBox(height: 72)),
                   Expanded(
                     child: _BottomNavItem(
                       item: sideItems[index],
@@ -351,7 +351,7 @@ class _BottomNav extends StatelessWidget {
           ),
           if (hasCreateOrder)
             Positioned(
-              top: 0,
+              top: 8,
               child: _CreateOrderNavButton(
                 selected: selectedFeature == AppFeature.createOrder,
                 onTap: () => onChanged(AppFeature.createOrder),
@@ -370,10 +370,10 @@ class _BottomNavBarPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    const top = 38.0;
+    const top = 42.0;
     const cornerRadius = 38.0;
-    const notchHalfWidth = 106.0;
-    const notchBottom = 95.0;
+    const notchHalfWidth = 96.0;
+    const notchBottom = 86.0;
 
     final centerX = size.width / 2;
     final path = Path()
@@ -385,17 +385,17 @@ class _BottomNavBarPainter extends CustomPainter {
       path
         ..lineTo(centerX - notchHalfWidth, top)
         ..cubicTo(
-          centerX - 78,
+          centerX - 70,
           top,
-          centerX - 74,
+          centerX - 66,
           notchBottom,
           centerX,
           notchBottom,
         )
         ..cubicTo(
-          centerX + 74,
+          centerX + 66,
           notchBottom,
-          centerX + 78,
+          centerX + 70,
           top,
           centerX + notchHalfWidth,
           top,
@@ -410,11 +410,21 @@ class _BottomNavBarPainter extends CustomPainter {
 
     canvas.drawShadow(path, Colors.black.withValues(alpha: 0.18), 18, true);
 
-    final fillPaint = Paint()..color = AppColors.white;
+    final fillPaint = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          AppColors.white.withValues(alpha: 0.72),
+          AppColors.white.withValues(alpha: 0.96),
+          AppColors.white,
+        ],
+        stops: const [0, 0.28, 1],
+      ).createShader(Rect.fromLTWH(0, top, size.width, size.height - top));
     canvas.drawPath(path, fillPaint);
 
     final borderPaint = Paint()
-      ..color = AppColors.creamDark
+      ..color = AppColors.creamDark.withValues(alpha: 0.82)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1;
     canvas.drawPath(path, borderPaint);
@@ -466,26 +476,26 @@ class _CreateOrderNavButton extends StatelessWidget {
       children: [
         InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(44),
+          borderRadius: BorderRadius.circular(34),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 180),
-            width: 84,
-            height: 84,
+            width: 68,
+            height: 68,
             decoration: BoxDecoration(
               color: Colors.black,
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: selected ? 0.26 : 0.2),
-                  blurRadius: selected ? 26 : 22,
-                  offset: const Offset(0, 10),
+                  color: Colors.black.withValues(alpha: selected ? 0.24 : 0.18),
+                  blurRadius: selected ? 22 : 20,
+                  offset: const Offset(0, 8),
                 ),
               ],
             ),
             child: const Icon(
               Icons.add_rounded,
               color: AppColors.white,
-              size: 44,
+              size: 38,
             ),
           ),
         ),
@@ -512,7 +522,7 @@ class _BottomNavItem extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: SizedBox(
-        height: 74,
+        height: 72,
         child: Stack(
           alignment: Alignment.center,
           children: [
@@ -563,7 +573,7 @@ class _BottomNavItem extends StatelessWidget {
                   style: TextStyle(
                     color: selected ? Colors.black : const Color(0xFF8B96A3),
                     fontSize: 12,
-                    fontWeight: FontWeight.w900,
+                    fontWeight: selected ? FontWeight.w900 : FontWeight.w800,
                   ),
                 ),
               ],

@@ -22,7 +22,7 @@ from awamir_plus.services.fulfillment import (
     get_department_work_orders as get_department_work_orders_for_order,
     update_department_work_order_status,
 )
-from awamir_plus.utils import create_notification, get_pagination, get_users_with_role, make_audit_log, make_status_log, run_idempotent
+from awamir_plus.utils import apply_order_flow_statuses, create_notification, get_pagination, get_users_with_role, make_audit_log, make_status_log, run_idempotent
 
 
 @frappe.whitelist()
@@ -100,6 +100,7 @@ def update_production_status(order=None, new_status=None, status=None, notes=Non
             frappe.throw(_("Pickup orders must become Ready For Pickup."))
         old_status = doc.status
         doc.status = new_status
+        apply_order_flow_statuses(doc)
         doc.save(ignore_permissions=True)
         _update_related_work_orders(doc, new_status, notes)
         make_status_log(doc.name, old_status, new_status, notes or _status_log_note(new_status))

@@ -6,6 +6,7 @@ import '../core/theme/app_theme.dart';
 import '../core/utils/formatters.dart';
 import '../models/app_models.dart';
 import '../widgets/app_header.dart';
+import '../widgets/reason_input_dialog.dart';
 import '../widgets/section_header.dart';
 import '../widgets/state_views.dart';
 import '../widgets/status_badge.dart';
@@ -42,6 +43,10 @@ class ProductionScreen extends StatelessWidget {
                 notificationCount: controller.unreadNotifications,
               ),
               const SizedBox(height: 14),
+              if (orders.any((order) => order.departmentWorkOrders.isNotEmpty))
+                _CapacitySummary(orders: orders),
+              if (orders.any((order) => order.departmentWorkOrders.isNotEmpty))
+                const SizedBox(height: 12),
               const SectionHeader(title: 'طلبات جهة التنفيذ'),
               if (controller.isActionLoading && orders.isEmpty)
                 const SizedBox(height: 280, child: LoadingStateView())
@@ -75,6 +80,82 @@ class ProductionScreen extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class _CapacitySummary extends StatelessWidget {
+  const _CapacitySummary({required this.orders});
+
+  final List<Order> orders;
+
+  @override
+  Widget build(BuildContext context) {
+    final workOrders = orders
+        .expand((order) => order.departmentWorkOrders)
+        .where((workOrder) => workOrder.departmentDailyCapacity > 0)
+        .toList();
+    if (workOrders.isEmpty) return const SizedBox.shrink();
+    final byDepartment = <String, DepartmentWorkOrder>{};
+    for (final workOrder in workOrders) {
+      byDepartment[workOrder.departmentId] = workOrder;
+    }
+    final rows = byDepartment.values.toList()
+      ..sort((a, b) => a.departmentName.compareTo(b.departmentName));
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: _SectionShell(
+        title: 'طاقة الإنتاج اليوم',
+        child: Column(
+          children: rows.map((workOrder) {
+            final used = workOrder.departmentOpenWorkOrdersCount;
+            final total = workOrder.departmentDailyCapacity;
+            final ratio = total == 0 ? 0.0 : (used / total).clamp(0.0, 1.0);
+            final overCapacity = workOrder.hasCapacityWarning;
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          workOrder.departmentName,
+                          style: const TextStyle(
+                            color: AppColors.navy,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        '$used/$total',
+                        style: TextStyle(
+                          color: overCapacity
+                              ? AppColors.red
+                              : AppColors.textMuted,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(99),
+                    child: LinearProgressIndicator(
+                      minHeight: 8,
+                      value: ratio,
+                      color: overCapacity ? AppColors.red : AppColors.gold,
+                      backgroundColor: AppColors.cream,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }).toList(),
+        ),
+      ),
     );
   }
 }
@@ -135,8 +216,10 @@ class _ProductionOrderDetailScreenState
                     ('العميل', _order.customer),
                     ('المنتجات', _order.productSummary),
                     ('جهة التنفيذ', _order.productionDepartmentName),
+                    ('الأولوية', _order.priority.label),
                     ('تاريخ الاستلام', _order.pickupDateText),
                     ('وقت الاستلام', _order.pickupTimeText),
+                    ('حالة التغليف', _order.packingStatus.label),
                     ('طريقة التسليم', _order.fulfillmentType.label),
                     ('فرع / عنوان', _order.fulfillmentSummary),
                     ('تفاصيل الطلب', _order.details),
@@ -194,9 +277,43 @@ class _ProductionOrderDetailScreenState
     DepartmentWorkOrder workOrder,
     DepartmentWorkOrderStatus status,
   ) async {
+    String notes = '';
+    if (status == DepartmentWorkOrderStatus.delayed ||
+        status == DepartmentWorkOrderStatus.rejected) {
+      final reason = await showDialog<String>(
+        context: context,
+        builder: (_) => ReasonInputDialog(
+          title: status == DepartmentWorkOrderStatus.delayed
+              ? 'تأخير أمر العمل'
+              : 'رفض أمر العمل',
+          label: status == DepartmentWorkOrderStatus.delayed
+              ? 'سبب التأخير'
+              : 'سبب الرفض',
+          emptyMessage: status == DepartmentWorkOrderStatus.delayed
+              ? 'سبب التأخير مطلوب'
+              : 'سبب الرفض مطلوب',
+          suggestions: status == DepartmentWorkOrderStatus.delayed
+              ? const [
+                  'الصنف غير متوفر',
+                  'الطاقة التشغيلية ممتلئة',
+                  'تأخير في الإنتاج',
+                  'ملاحظة جودة',
+                ]
+              : const [
+                  'الصنف غير متوفر',
+                  'بيانات الطلب غير واضحة',
+                  'الوقت المطلوب غير ممكن',
+                  'ملاحظة جودة',
+                ],
+        ),
+      );
+      if (reason == null) return;
+      notes = reason;
+    }
     final updated = await widget.controller.updateWorkOrderStatus(
       workOrderId: workOrder.id,
       status: status,
+      notes: notes,
     );
     if (!mounted) return;
     if (updated == null) {
@@ -335,8 +452,8 @@ class _ProductionActions extends StatelessWidget {
           ),
           label: Text(
             order.fulfillmentType == FulfillmentType.branchPickup
-                ? 'جاهز للاستلام'
-                : 'جاهز للتوصيل',
+                ? 'تم التغليف وجاهز للاستلام'
+                : 'تم التغليف وجاهز للتوصيل',
           ),
         ),
       );
@@ -604,6 +721,16 @@ class _DepartmentWorkOrdersSection extends StatelessWidget {
             status: DepartmentWorkOrderStatus.inProduction,
             icon: Icons.play_arrow,
           ),
+          _WorkOrderAction(
+            label: 'تأخير',
+            status: DepartmentWorkOrderStatus.delayed,
+            icon: Icons.warning_amber_rounded,
+          ),
+          _WorkOrderAction(
+            label: 'رفض',
+            status: DepartmentWorkOrderStatus.rejected,
+            icon: Icons.cancel_outlined,
+          ),
         ];
       case DepartmentWorkOrderStatus.inProduction:
       case DepartmentWorkOrderStatus.delayed:
@@ -612,6 +739,11 @@ class _DepartmentWorkOrdersSection extends StatelessWidget {
             label: 'جاهز',
             status: DepartmentWorkOrderStatus.ready,
             icon: Icons.task_alt,
+          ),
+          _WorkOrderAction(
+            label: 'تأخير',
+            status: DepartmentWorkOrderStatus.delayed,
+            icon: Icons.warning_amber_rounded,
           ),
         ];
       case DepartmentWorkOrderStatus.ready:

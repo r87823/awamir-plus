@@ -6,6 +6,7 @@ import '../core/theme/app_theme.dart';
 import '../core/utils/formatters.dart';
 import '../models/app_models.dart';
 import '../widgets/app_header.dart';
+import '../widgets/reason_input_dialog.dart';
 import '../widgets/section_header.dart';
 import '../widgets/state_views.dart';
 
@@ -308,7 +309,17 @@ class _CashClosureDetailScreenState extends State<CashClosureDetailScreen> {
   Future<void> _returnForReview() async {
     final reason = await showDialog<String>(
       context: context,
-      builder: (_) => const _ReasonDialog(),
+      builder: (_) => const ReasonInputDialog(
+        title: 'إرجاع العهدة',
+        label: 'سبب الإرجاع',
+        emptyMessage: 'سبب الإرجاع مطلوب',
+        suggestions: [
+          'يوجد فرق في العهدة',
+          'إيصال غير واضح',
+          'رقم عملية ناقص',
+          'طريقة الدفع غير مطابقة',
+        ],
+      ),
     );
     if (reason == null) return;
     final updated = await widget.controller.returnCashClosure(
@@ -523,6 +534,39 @@ class _ActualAmountsBox extends StatelessWidget {
               ),
             ),
           const SizedBox(height: 10),
+          if (difference != 0) ...[
+            Align(
+              alignment: Alignment.centerRight,
+              child: Text(
+                'أسباب شائعة للفرق',
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  color: AppColors.navy,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children:
+                  const [
+                    'فرق نقدي',
+                    'عملية شبكة غير مطابقة',
+                    'تحويل غير مؤكد',
+                    'إيصال ناقص',
+                  ].map((reason) {
+                    return ActionChip(
+                      label: Text(reason),
+                      onPressed: () {
+                        differenceReasonController.text = reason;
+                        onChanged();
+                      },
+                    );
+                  }).toList(),
+            ),
+            const SizedBox(height: 10),
+          ],
           TextField(
             controller: differenceReasonController,
             decoration: const InputDecoration(labelText: 'سبب الفرق إن وجد'),
@@ -712,56 +756,6 @@ class _Row extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _ReasonDialog extends StatefulWidget {
-  const _ReasonDialog();
-
-  @override
-  State<_ReasonDialog> createState() => _ReasonDialogState();
-}
-
-class _ReasonDialogState extends State<_ReasonDialog> {
-  final _controller = TextEditingController();
-  String _error = '';
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('إرجاع العهدة'),
-      content: TextField(
-        controller: _controller,
-        maxLines: 3,
-        decoration: InputDecoration(
-          labelText: 'سبب الإرجاع',
-          errorText: _error.isEmpty ? null : _error,
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('إلغاء'),
-        ),
-        ElevatedButton(
-          onPressed: () {
-            final reason = _controller.text.trim();
-            if (reason.isEmpty) {
-              setState(() => _error = 'سبب الإرجاع مطلوب');
-              return;
-            }
-            Navigator.pop(context, reason);
-          },
-          child: const Text('إرجاع'),
-        ),
-      ],
     );
   }
 }

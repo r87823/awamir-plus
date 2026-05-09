@@ -9,7 +9,7 @@ from awamir_plus.constants import (
     ORDER_STATUS_ASSIGNED_TO_DRIVER,
     ORDER_STATUS_READY_FOR_DELIVERY,
 )
-from awamir_plus.utils import create_notification, make_status_log, now
+from awamir_plus.utils import apply_order_flow_statuses, create_notification, get_pagination, make_status_log, now
 
 
 def create_batches_for_ready_delivery_orders(branch=None):
@@ -34,7 +34,17 @@ def create_batches_for_ready_delivery_orders(branch=None):
     ]
 
 
-def get_delivery_batches(statuses=None, driver=None, destination_branch=None):
+def create_batch_for_order(order):
+    doc = frappe.get_doc("Awamir Order Request", order)
+    if doc.status != ORDER_STATUS_READY_FOR_DELIVERY:
+        frappe.throw(_("Only Ready For Delivery orders can be added to a delivery batch."))
+    destination = doc.pickup_branch or doc.created_branch
+    if not destination:
+        frappe.throw(_("Delivery batch destination branch is required."))
+    return _get_or_create_batch(destination, [doc])
+
+
+def get_delivery_batches(statuses=None, driver=None, destination_branch=None, limit_start=0, limit_page_length=None):
     filters = {}
     if statuses:
         filters["status"] = ["in", list(statuses)]
@@ -42,7 +52,13 @@ def get_delivery_batches(statuses=None, driver=None, destination_branch=None):
         filters["driver"] = driver
     if destination_branch:
         filters["destination_branch"] = destination_branch
-    names = frappe.get_all("Awamir Delivery Batch", filters=filters, pluck="name", order_by="modified desc")
+    names = frappe.get_all(
+        "Awamir Delivery Batch",
+        filters=filters,
+        pluck="name",
+        order_by="modified desc",
+        **get_pagination(limit_start, limit_page_length),
+    )
     return [delivery_batch_response(name) for name in names]
 
 
@@ -148,6 +164,7 @@ def _assign_batch_orders_to_driver(batch, driver):
         order_doc.status = ORDER_STATUS_ASSIGNED_TO_DRIVER
         order_doc.delivery_status = DELIVERY_FLOW_STATUS_ASSIGNED_TO_DRIVER
         order_doc.assigned_driver = driver
+        apply_order_flow_statuses(order_doc)
         order_doc.save(ignore_permissions=True)
         row.status = order_doc.status
 

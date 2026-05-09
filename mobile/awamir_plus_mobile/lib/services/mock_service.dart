@@ -587,6 +587,9 @@ class MockService implements AuthService {
       rejectionReason: status == DepartmentWorkOrderStatus.rejected
           ? notes.trim()
           : workOrder.rejectionReason,
+      departmentDailyCapacity: workOrder.departmentDailyCapacity,
+      departmentOpenWorkOrdersCount: workOrder.departmentOpenWorkOrdersCount,
+      capacityWarning: workOrder.capacityWarning,
     );
     _departmentWorkOrders[index] = updated;
     return updated;
@@ -832,7 +835,22 @@ class MockService implements AuthService {
       driverName: driver.fullName,
       assignedBy: _currentUser?.id ?? '',
       assignedAt: DateTime.now(),
-      orders: batch.orders,
+      orders: batch.orders.map((row) {
+        final order = _findOrder(row.orderId);
+        final assigned = _assignOrderToDriverFromBatch(
+          order: order,
+          driver: driver,
+          changedBy: _currentUser ?? _MockData.userAccounts['admin']!.user,
+          batchNumber: batch.batchNumber,
+        );
+        return DeliveryBatchOrder(
+          orderId: row.orderId,
+          orderNumber: row.orderNumber,
+          customerName: row.customerName,
+          customerPhone: row.customerPhone,
+          status: assigned.status,
+        );
+      }).toList(),
     );
     _deliveryBatches[index] = updated;
     return updated;
@@ -872,11 +890,42 @@ class MockService implements AuthService {
       );
     }
 
+    final batches = await createDeliveryBatches(
+      branchId: order.pickupBranchId.isNotEmpty
+          ? order.pickupBranchId
+          : order.createdBranchId,
+    );
+    final batch = batches.firstWhere(
+      (item) => item.orders.any((row) => row.orderId == order.id),
+      orElse: () => throw const RepositoryException(
+        'لم يتم إنشاء دفعة توصيل لهذا الطلب',
+        code: 'delivery_batch_not_found',
+      ),
+    );
+    await assignDeliveryBatch(batchId: batch.id, driverId: driver.id);
+    return _findOrder(order.id);
+  }
+
+  Order _assignOrderToDriverFromBatch({
+    required Order order,
+    required DriverProfile driver,
+    required AppUser changedBy,
+    required String batchNumber,
+  }) {
+    if (order.status == OrderStatus.assignedToDriver &&
+        order.assignedDriverId == driver.id) {
+      return order;
+    }
+    if (order.status != OrderStatus.readyForDelivery) {
+      return order;
+    }
+
     final updated = _updateOrderStatus(
       order: order,
       newStatus: OrderStatus.assignedToDriver,
       changedBy: changedBy,
-      notes: 'تم إسناد الطلب للسائق ${driver.fullName}',
+      notes:
+          'تم إسناد الطلب للسائق ${driver.fullName} عبر دفعة التوصيل $batchNumber',
       progress: 5,
       assignedDriver: driver,
     );
@@ -896,8 +945,8 @@ class MockService implements AuthService {
 
     _createNotificationForUser(
       userId: driver.userId,
-      title: 'طلب جديد مسند لك',
-      message: 'تم إسناد طلب جديد لك رقم ${order.id}',
+      title: 'دفعة توصيل جديدة',
+      message: 'تم إسناد طلب رقم ${order.id} لك ضمن الدفعة $batchNumber',
       relatedOrderId: order.id,
       type: NotificationType.driverAssigned,
     );

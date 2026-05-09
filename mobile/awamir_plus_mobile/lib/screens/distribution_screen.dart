@@ -382,6 +382,7 @@ class _DistributionOrderDetailScreenState
                     ('الجوال', _order.customerPhone),
                     ('القسم', _order.categoryName),
                     ('المنتجات', _order.productSummary),
+                    ('الأولوية', _order.priority.label),
                     ('تاريخ الاستلام', _order.pickupDateText),
                     ('وقت الاستلام', _order.pickupTimeText),
                     ('طريقة التسليم', _order.fulfillmentType.label),
@@ -416,9 +417,9 @@ class _DistributionOrderDetailScreenState
                   ),
                 ] else if (_order.status == OrderStatus.readyForDelivery ||
                     _order.status == OrderStatus.deliveryFailed) ...[
-                  _DriverAssignmentSection(
+                  _DeliveryBatchActionSection(
                     order: _order,
-                    onAssign: _assignDriver,
+                    onCreateBatch: _createDeliveryBatchForOrder,
                   ),
                 ] else ...[
                   _SectionShell(
@@ -502,47 +503,15 @@ class _DistributionOrderDetailScreenState
     );
   }
 
-  Future<void> _assignDriver() async {
-    final driver = await showDialog<DriverProfile>(
-      context: context,
-      builder: (_) => _DriverPickerDialog(
-        driversFuture: widget.controller.getAvailableDrivers(
-          branchId: _order.createdBranchId,
-        ),
-      ),
-    );
-    if (driver == null) return;
-    if (!mounted) return;
-
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('تأكيد الإسناد'),
-          content: Text(
-            'سيتم إسناد الطلب ${_order.id} إلى ${driver.fullName}.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('إلغاء'),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('إسناد'),
-            ),
-          ],
-        );
-      },
-    );
-    if (confirmed != true) return;
-
-    final updated = await widget.controller.assignDriverToOrder(
-      orderId: _order.id,
-      driverId: driver.id,
+  Future<void> _createDeliveryBatchForOrder() async {
+    final branchId = _order.pickupBranchId.isNotEmpty
+        ? _order.pickupBranchId
+        : _order.pickupBranch;
+    final batches = await widget.controller.createDeliveryBatches(
+      branchId: branchId.isEmpty ? null : branchId,
     );
     if (!mounted) return;
-    if (updated == null) {
+    if (batches == null) {
       final error = widget.controller.actionErrorMessage;
       if (error != null) {
         ScaffoldMessenger.of(
@@ -551,13 +520,14 @@ class _DistributionOrderDetailScreenState
       }
       return;
     }
-
-    setState(() {
-      _order = updated;
-      _logsFuture = widget.controller.getOrderStatusLogs(_order.id);
-    });
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('تم إسناد الطلب للسائق بنجاح')),
+      SnackBar(
+        content: Text(
+          batches.isEmpty
+              ? 'لا توجد طلبات جاهزة لإنشاء دفعة توصيل'
+              : 'تم تجهيز دفعة التوصيل، يمكن إسنادها من قائمة دفعات التوصيل',
+        ),
+      ),
     );
   }
 }
@@ -640,11 +610,14 @@ class _DistributionOrderCard extends StatelessWidget {
   }
 }
 
-class _DriverAssignmentSection extends StatelessWidget {
-  const _DriverAssignmentSection({required this.order, required this.onAssign});
+class _DeliveryBatchActionSection extends StatelessWidget {
+  const _DeliveryBatchActionSection({
+    required this.order,
+    required this.onCreateBatch,
+  });
 
   final Order order;
-  final VoidCallback onAssign;
+  final VoidCallback onCreateBatch;
 
   @override
   Widget build(BuildContext context) {
@@ -655,11 +628,20 @@ class _DriverAssignmentSection extends StatelessWidget {
         children: [
           _CompactRow(label: 'العنوان', value: order.fulfillmentSummary),
           _CompactRow(label: 'ملاحظات', value: order.deliveryDetails.notes),
+          const SizedBox(height: 8),
+          const Text(
+            'مسار التوصيل الرسمي: جهّز دفعة توصيل للفرع ثم أسند الدفعة للسائق من قائمة دفعات التوصيل.',
+            style: TextStyle(
+              color: AppColors.textMuted,
+              fontWeight: FontWeight.w800,
+              height: 1.4,
+            ),
+          ),
           const SizedBox(height: 12),
           ElevatedButton.icon(
-            onPressed: onAssign,
-            icon: const Icon(Icons.assignment_ind_outlined),
-            label: const Text('إسناد لسائق'),
+            onPressed: onCreateBatch,
+            icon: const Icon(Icons.playlist_add_check),
+            label: const Text('تجهيز دفعة توصيل'),
           ),
         ],
       ),

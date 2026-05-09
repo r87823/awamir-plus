@@ -361,6 +361,99 @@ ORDER_PRIORITIES = [
     ORDER_PRIORITY_SCHEDULED,
 ]
 
+EXCEPTION_REASON_CATEGORY_PRODUCTION = "production"
+EXCEPTION_REASON_CATEGORY_DELIVERY = "delivery"
+EXCEPTION_REASON_CATEGORY_PAYMENT = "payment"
+EXCEPTION_REASON_CATEGORY_CUSTOMER = "customer"
+
+EXCEPTION_REASON_CATEGORIES = [
+    EXCEPTION_REASON_CATEGORY_PRODUCTION,
+    EXCEPTION_REASON_CATEGORY_DELIVERY,
+    EXCEPTION_REASON_CATEGORY_PAYMENT,
+    EXCEPTION_REASON_CATEGORY_CUSTOMER,
+]
+
+EXCEPTION_REASONS = {
+    EXCEPTION_REASON_CATEGORY_PRODUCTION: [
+        {
+            "code": "item_unavailable",
+            "label": "الصنف غير متوفر",
+            "description": "يستخدم عند عدم توفر منتج أو مكون مطلوب للتنفيذ.",
+        },
+        {
+            "code": "delayed_production",
+            "label": "تأخير في الإنتاج",
+            "description": "يستخدم عند وجود تأخير تشغيلي في جهة التنفيذ.",
+        },
+        {
+            "code": "capacity_full",
+            "label": "الطاقة التشغيلية ممتلئة",
+            "description": "يستخدم عندما لا تستطيع جهة التنفيذ قبول المزيد من الطلبات.",
+        },
+        {
+            "code": "quality_issue",
+            "label": "ملاحظة جودة",
+            "description": "يستخدم عند وجود مشكلة جودة تحتاج مراجعة قبل التسليم.",
+        },
+    ],
+    EXCEPTION_REASON_CATEGORY_DELIVERY: [
+        {
+            "code": "driver_issue",
+            "label": "مشكلة لدى السائق",
+            "description": "يستخدم عند وجود عائق يمنع السائق من إكمال المسار.",
+        },
+        {
+            "code": "branch_closed",
+            "label": "الفرع مغلق",
+            "description": "يستخدم عند تعذر الاستلام أو التسليم بسبب إغلاق الفرع.",
+        },
+        {
+            "code": "damaged_item",
+            "label": "تلف في الطلب",
+            "description": "يستخدم عند تلف الطلب قبل أو أثناء التوصيل.",
+        },
+        {
+            "code": "delivery_failed",
+            "label": "تعذر التوصيل",
+            "description": "يستخدم عند فشل محاولة التوصيل للعميل.",
+        },
+    ],
+    EXCEPTION_REASON_CATEGORY_PAYMENT: [
+        {
+            "code": "payment_failed",
+            "label": "فشل عملية الدفع",
+            "description": "يستخدم عند تعذر إتمام عملية الدفع أو التحصيل.",
+        },
+        {
+            "code": "cash_difference",
+            "label": "فرق في العهدة",
+            "description": "يستخدم عند وجود فرق بين المبلغ المسجل والمستلم.",
+        },
+        {
+            "code": "unpaid_amount",
+            "label": "مبلغ متبق غير مسدد",
+            "description": "يستخدم عندما يمنع المتبقي غير المسدد إتمام التسليم.",
+        },
+    ],
+    EXCEPTION_REASON_CATEGORY_CUSTOMER: [
+        {
+            "code": "customer_cancelled",
+            "label": "إلغاء من العميل",
+            "description": "يستخدم عند طلب العميل إلغاء الطلب.",
+        },
+        {
+            "code": "customer_not_available",
+            "label": "تعذر الوصول للعميل",
+            "description": "يستخدم عند عدم تجاوب العميل أو عدم وجوده في الموقع.",
+        },
+        {
+            "code": "customer_requested_change",
+            "label": "طلب تعديل من العميل",
+            "description": "يستخدم عندما يطلب العميل تعديل تفاصيل الطلب.",
+        },
+    ],
+}
+
 PACKING_STATUS_NOT_REQUIRED = "not_required"
 PACKING_STATUS_WAITING = "waiting"
 PACKING_STATUS_READY_FOR_PACKING = "ready_for_packing"

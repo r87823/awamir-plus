@@ -38,10 +38,11 @@ from awamir_plus.constants import (
 from awamir_plus.permissions import get_user_branch, has_permission, is_awamir_admin, require_any_permissions, require_branch_scope, require_permissions
 from awamir_plus.services.delivery_batch import (
     assign_batch_to_driver,
+    create_batch_for_order,
     create_batches_for_ready_delivery_orders,
     get_delivery_batches as get_delivery_batches_for_user,
 )
-from awamir_plus.utils import assert_required, create_notification, get_awamir_settings, get_pagination, make_audit_log, make_status_log, now, run_idempotent, to_float
+from awamir_plus.utils import apply_order_flow_statuses, assert_required, create_notification, get_awamir_settings, get_pagination, make_audit_log, make_status_log, now, run_idempotent, to_float
 
 
 @frappe.whitelist()
@@ -91,6 +92,7 @@ def mark_pickup_order_delivered(
     doc.signature_url = signature_url
     doc.qr_scanned = 1 if _as_bool(qr_scanned) else 0
     doc.delivered_at = now()
+    apply_order_flow_statuses(doc)
     doc.save(ignore_permissions=True)
     make_status_log(doc.name, old_status, doc.status, _("Delivered to customer from branch."))
     create_notification(
@@ -100,6 +102,7 @@ def mark_pickup_order_delivered(
         doc.name,
         "order_delivered",
     )
+    _maybe_create_invoice_on_delivery(doc)
     response = _order_response(doc, _("Order delivered successfully."))
     make_audit_log("pickup_order_delivered", reference_doctype="Awamir Order Request", reference_name=doc.name, method="mark_pickup_order_delivered", response=response)
     return response
@@ -216,7 +219,7 @@ def create_delivery_batches(branch_id=None, idempotency_key=None):
 
 
 @frappe.whitelist()
-def get_delivery_batches(status=None, destination_branch=None):
+def get_delivery_batches(status=None, destination_branch=None, limit_start=0, limit_page_length=None):
     require_any_permissions([PERMISSION_DELIVERY_BATCH_VIEW, PERMISSION_DELIVERY_BATCH_VIEW_ASSIGNED])
     statuses = [status] if status else None
     driver = None
@@ -228,6 +231,8 @@ def get_delivery_batches(status=None, destination_branch=None):
         statuses=statuses,
         driver=driver,
         destination_branch=destination_branch,
+        limit_start=limit_start,
+        limit_page_length=limit_page_length,
     )
 
 
@@ -254,6 +259,13 @@ def assign_delivery_batch(batch=None, driver=None, batch_id=None, driver_id=None
 
 @frappe.whitelist()
 def assign_driver_to_order(order=None, driver=None, order_id=None, driver_id=None):
+    """Compatibility endpoint.
+
+    The official operational route is Driver -> Delivery Batch -> Orders.
+    Older clients may still call this method with a single order; in that case
+    we create/reuse the order's delivery batch and assign that batch instead of
+    mutating the order as a standalone assignment.
+    """
     require_permissions(PERMISSION_DELIVERY_BATCH_ASSIGN_DRIVER)
     order = order or order_id
     driver = driver or driver_id
@@ -270,50 +282,21 @@ def assign_driver_to_order(order=None, driver=None, order_id=None, driver_id=Non
         return response
     if doc.status != ORDER_STATUS_READY_FOR_DELIVERY:
         frappe.throw(_("Only Ready For Delivery orders can be assigned to a driver."))
-    existing_assignment = frappe.db.get_value(
-        "Awamir Delivery Assignment",
-        {"order": doc.name, "driver": driver, "status": ["!=", ORDER_STATUS_DELIVERY_FAILED]},
-        "name",
+
+    batch = create_batch_for_order(doc.name)
+    assigned_batch = assign_batch_to_driver(batch.name, driver)
+    doc.reload()
+    response = _order_response(doc, _("Order assigned through delivery batch successfully."))
+    response["delivery_batch"] = assigned_batch.name
+    response["delivery_batch_number"] = assigned_batch.batch_number
+    make_audit_log(
+        "driver_assigned_through_delivery_batch",
+        reference_doctype="Awamir Order Request",
+        reference_name=doc.name,
+        method="assign_driver_to_order",
+        payload={"driver": driver, "delivery_batch": assigned_batch.name},
+        response=response,
     )
-    if existing_assignment:
-        doc.assigned_driver = driver
-        doc.status = ORDER_STATUS_ASSIGNED_TO_DRIVER
-        doc.save(ignore_permissions=True)
-        response = _order_response(doc, _("Order is already assigned to this driver."))
-        make_audit_log("driver_assignment_skipped", status="skipped", reference_doctype="Awamir Order Request", reference_name=doc.name, method="assign_driver_to_order", payload={"driver": driver}, response=response)
-        return response
-    old_status = doc.status
-    doc.status = ORDER_STATUS_ASSIGNED_TO_DRIVER
-    doc.assigned_driver = driver
-    doc.save(ignore_permissions=True)
-    assignment = frappe.get_doc(
-        {
-            "doctype": "Awamir Delivery Assignment",
-            "order": doc.name,
-            "driver": driver,
-            "assigned_by": frappe.session.user,
-            "assigned_at": now(),
-            "status": ORDER_STATUS_ASSIGNED_TO_DRIVER,
-        }
-    ).insert(ignore_permissions=True)
-    make_status_log(doc.name, old_status, doc.status, _("Assigned to driver {0}.").format(driver))
-    driver_name = frappe.db.get_value("User", driver, "full_name") or driver
-    create_notification(
-        driver,
-        _("New Delivery Order"),
-        _("Order {0} assigned to you.").format(doc.order_number),
-        doc.name,
-        "driver_assigned",
-    )
-    create_notification(
-        doc.created_by_user,
-        _("Driver Assigned"),
-        _("Order {0} assigned to driver {1}.").format(doc.order_number, driver_name),
-        doc.name,
-        "driver_assigned",
-    )
-    response = _order_response(doc, _("Order assigned to driver successfully."))
-    make_audit_log("driver_assigned", reference_doctype="Awamir Order Request", reference_name=doc.name, method="assign_driver_to_order", payload={"driver": driver}, response=response)
     return response
 
 
@@ -385,6 +368,7 @@ def update_delivery_status(
         doc.qr_scanned = 1 if _as_bool(qr_scanned) else 0
         doc.delivered_at = now()
     _sync_delivery_flow_status(doc, new_status)
+    apply_order_flow_statuses(doc)
     doc.save(ignore_permissions=True)
     _update_assignment(
         doc,
@@ -398,6 +382,8 @@ def update_delivery_status(
     _sync_delivery_batch_order_status(doc)
     make_status_log(doc.name, old_status, new_status, driver_notes)
     _create_delivery_notifications(doc, new_status)
+    if new_status == ORDER_STATUS_DELIVERED:
+        _maybe_create_invoice_on_delivery(doc)
     response = _order_response(doc, _("Delivery status updated successfully."))
     make_audit_log("delivery_status_updated", reference_doctype="Awamir Order Request", reference_name=doc.name, method="update_delivery_status", payload={"new_status": new_status, "driver_notes": driver_notes}, response=response)
     return response
@@ -420,6 +406,7 @@ def mark_delivery_failed(order=None, reason=None, failure_reason=None, order_id=
     old_status = doc.status
     doc.status = ORDER_STATUS_DELIVERY_FAILED
     doc.delivery_status = DELIVERY_FLOW_STATUS_RETURNED
+    apply_order_flow_statuses(doc)
     doc.save(ignore_permissions=True)
     _update_assignment(doc, ORDER_STATUS_DELIVERY_FAILED, failure_reason=reason)
     _sync_delivery_batch_order_status(doc)
@@ -531,6 +518,21 @@ def _sync_batch_status(batch):
     elif ORDER_STATUS_DRIVER_PICKED_UP in statuses:
         batch.status = DELIVERY_BATCH_STATUS_PICKED_UP
         batch.picked_up_at = batch.picked_up_at or now()
+
+
+def _maybe_create_invoice_on_delivery(doc):
+    settings = get_awamir_settings()
+    if not frappe.utils.cint(settings.create_invoice_on_delivery):
+        return
+    try:
+        from awamir_plus.services.accounting import create_sales_invoice_for_order
+
+        create_sales_invoice_for_order(doc.name)
+    except Exception as exc:
+        doc.reload()
+        doc.erp_sync_error = _("تعذر إنشاء Sales Invoice تلقائياً عند التسليم: {0}").format(str(exc))
+        doc.save(ignore_permissions=True)
+        make_status_log(doc.name, doc.status, doc.status, doc.erp_sync_error)
 
 
 def _ensure_payment_scope(doc):

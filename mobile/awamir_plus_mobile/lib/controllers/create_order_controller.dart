@@ -263,6 +263,31 @@ class CreateOrderController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void updatePriority(OrderPriority priority) {
+    request.priority = priority;
+    validationMessage = null;
+    notifyListeners();
+  }
+
+  void updateScheduledAt(DateTime? value) {
+    request.scheduledAt = value;
+    validationMessage = null;
+    notifyListeners();
+  }
+
+  void updatePickupTimeOverride(TimeOfDay? value) {
+    request.pickupTimeOverride = value;
+    validationMessage = null;
+    notifyListeners();
+  }
+
+  void updateDeliveryWindow({DateTime? start, DateTime? end}) {
+    request.deliveryWindowStart = start ?? request.deliveryWindowStart;
+    request.deliveryWindowEnd = end ?? request.deliveryWindowEnd;
+    validationMessage = null;
+    notifyListeners();
+  }
+
   bool addAttachment(OrderAttachmentDraft attachment) {
     if (!attachment.isValidType) {
       validationMessage = 'نوع الملف غير مدعوم';
@@ -455,10 +480,21 @@ class CreateOrderController extends ChangeNotifier {
         }
         final selectedDate = DateUtils.dateOnly(request.pickupDate!);
         final today = DateUtils.dateOnly(DateTime.now());
-        return _validate(
+        if (!_validate(
           !selectedDate.isBefore(today),
           'لا يسمح بتاريخ استلام سابق',
-        );
+        )) {
+          return false;
+        }
+        if (request.deliveryWindowStart != null &&
+            request.deliveryWindowEnd != null &&
+            !request.deliveryWindowEnd!.isAfter(request.deliveryWindowStart!)) {
+          return _validate(
+            false,
+            'نهاية نافذة التوصيل يجب أن تكون بعد البداية',
+          );
+        }
+        return true;
       case CreateOrderStep.attachments:
         for (final attachment in request.attachments) {
           if (!_validate(attachment.isValidType, 'يوجد ملف غير مدعوم')) {
@@ -708,6 +744,11 @@ class CreateOrderController extends ChangeNotifier {
     request.customerNotes = existingOrder.customerNotes;
     request.pickupDate = existingOrder.pickupDate;
     request.pickupTime = existingOrder.pickupTime;
+    request.priority = existingOrder.priority;
+    request.scheduledAt = existingOrder.scheduledAt;
+    request.pickupTimeOverride = existingOrder.pickupTimeOverride;
+    request.deliveryWindowStart = existingOrder.deliveryWindowStart;
+    request.deliveryWindowEnd = existingOrder.deliveryWindowEnd;
     request.attachments.addAll(existingOrder.attachments);
     request.fulfillmentType = existingOrder.fulfillmentType;
     request.createdBranch = BranchRef(

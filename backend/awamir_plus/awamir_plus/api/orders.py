@@ -35,8 +35,10 @@ from awamir_plus.permissions import (
     require_permissions,
 )
 from awamir_plus.utils import (
+    apply_order_flow_statuses,
     assert_required,
     create_notification,
+    derive_order_flow_statuses,
     extract_coordinates_from_google_maps_url,
     get_idempotent_response,
     get_pagination,
@@ -181,6 +183,7 @@ def _submit_existing_order_for_approval(order):
 
     old_status = doc.status
     doc.status = ORDER_STATUS_PENDING_APPROVAL
+    apply_order_flow_statuses(doc)
     doc.save(ignore_permissions=True)
     make_status_log(doc.name, old_status, doc.status, _("Order sent for supervisor approval."))
     for supervisor in _get_branch_supervisors():
@@ -236,6 +239,7 @@ def _update_order(order, order_data, status):
     doc.status = status
     doc.total_amount = total_amount
     doc.remaining_amount = total_amount + delivery_fee - deposit_amount
+    apply_order_flow_statuses(doc)
     doc.set("items", [_make_item(item) for item in items])
     doc.save(ignore_permissions=True)
 
@@ -277,9 +281,13 @@ def _draft_edit_data(doc, payload):
     data = payload if isinstance(payload, dict) else {}
     return {
         "items": data.get("items") or [item.as_dict() for item in doc.items],
+        "priority": data.get("priority") or doc.priority,
+        "scheduled_at": data.get("scheduled_at") or doc.scheduled_at,
         "required_date": data.get("required_date") or doc.required_date,
         "required_time": data.get("required_time") or doc.required_time,
         "pickup_time": data.get("pickup_time") or doc.pickup_time,
+        "delivery_window_start": data.get("delivery_window_start") or doc.delivery_window_start,
+        "delivery_window_end": data.get("delivery_window_end") or doc.delivery_window_end,
         "order_notes": data.get("order_notes") if "order_notes" in data else doc.order_notes,
         "customer_notes": data.get("customer_notes") if "customer_notes" in data else doc.customer_notes,
     }
@@ -329,6 +337,7 @@ def cancel_order(order=None, order_id=None, reason=None, idempotency_key=None):
         doc.cancelled_at = now_datetime()
         doc.cancelled_by = frappe.session.user
         doc.cancellation_reason = reason
+        apply_order_flow_statuses(doc)
         doc.save(ignore_permissions=True)
         _cancel_related_work_orders(doc.name)
         make_status_log(doc.name, old_status, doc.status, reason)
@@ -417,6 +426,12 @@ def _save_order(order_data, status):
             "order_notes": data.get("order_notes") or data.get("order_details"),
             "customer_notes": data.get("customer_notes"),
             "status": status,
+            **derive_order_flow_statuses(
+                status,
+                delivery_type=delivery_type,
+                deposit_amount=deposit_amount,
+                remaining_amount=total_amount + delivery_fee - deposit_amount,
+            ),
             "total_amount": total_amount,
             "deposit_amount": deposit_amount,
             "remaining_amount": total_amount + delivery_fee - deposit_amount,
@@ -735,6 +750,7 @@ def get_order_detail(order):
     )
     if not is_awamir_admin() and not driver_scope and not production_scope:
         require_branch_scope(doc.created_branch)
+    apply_order_flow_statuses(doc)
     data = doc.as_dict()
     if doc.production_department:
         data["production_department_name"] = frappe.db.get_value(

@@ -19,7 +19,7 @@ from awamir_plus.services.fulfillment import (
     create_department_work_orders_for_order,
     get_department_work_orders as get_department_work_orders_for_order,
 )
-from awamir_plus.utils import assert_required, create_notification, get_pagination, get_users_with_role, make_audit_log, make_status_log, run_idempotent
+from awamir_plus.utils import apply_order_flow_statuses, assert_required, create_notification, get_pagination, get_users_with_role, make_audit_log, make_status_log, run_idempotent
 
 
 @frappe.whitelist()
@@ -102,6 +102,7 @@ def assign_production_department(order=None, production_department=None, order_i
         old_status = doc.status
         doc.production_department = production_department
         doc.status = ORDER_STATUS_SENT_TO_PRODUCTION
+        apply_order_flow_statuses(doc)
         doc.save(ignore_permissions=True)
         work_orders = create_department_work_orders_for_order(doc.name, fallback_department=production_department)
         make_status_log(doc.name, old_status, doc.status, _("Assigned to production department {0}.").format(production_department))

@@ -126,6 +126,17 @@ class ErpnextService implements AuthService {
     return data.map((item) => _mapCustomerAddress(_asMap(item))).toList();
   }
 
+  Future<List<ExceptionReason>> getExceptionReasons({
+    ExceptionReasonCategory? category,
+  }) async {
+    final data = await _apiClient.get<List<dynamic>>(
+      'awamir_plus.api.exceptions.get_exception_reasons',
+      queryParameters: {'category': category?.key},
+      parser: _asList,
+    );
+    return data.map((item) => _mapExceptionReason(_asMap(item))).toList();
+  }
+
   Future<Order> createOrder(OrderDraft draft, List<Product> products) {
     return _notConfigured();
   }
@@ -1067,8 +1078,13 @@ class ErpnextService implements AuthService {
         'order': request.editingOrderId.trim(),
         'submit_for_approval': submitForApproval,
         'items': request.lineItems.map(_linePayload).toList(),
+        'priority': request.priority.key,
+        'scheduled_at': _dateTimeKey(request.scheduledAt),
         'required_date': _dateKey(request.pickupDate),
         'required_time': _timeKey(request.pickupTime),
+        'pickup_time': _timeKey(request.pickupTimeOverride),
+        'delivery_window_start': _dateTimeKey(request.deliveryWindowStart),
+        'delivery_window_end': _dateTimeKey(request.deliveryWindowEnd),
         'order_notes': request.orderDetails.trim(),
         'customer_notes': request.customerNotes.trim(),
       };
@@ -1087,8 +1103,13 @@ class ErpnextService implements AuthService {
       'company_email': request.companyEmail.trim(),
       'contact_person': request.companyContactPerson.trim(),
       'items': request.lineItems.map(_linePayload).toList(),
+      'priority': request.priority.key,
+      'scheduled_at': _dateTimeKey(request.scheduledAt),
       'required_date': _dateKey(request.pickupDate),
       'required_time': _timeKey(request.pickupTime),
+      'pickup_time': _timeKey(request.pickupTimeOverride),
+      'delivery_window_start': _dateTimeKey(request.deliveryWindowStart),
+      'delivery_window_end': _dateTimeKey(request.deliveryWindowEnd),
       'delivery_type': request.fulfillmentType == FulfillmentType.branchPickup
           ? 'Pickup'
           : 'Delivery',
@@ -1166,18 +1187,56 @@ class ErpnextService implements AuthService {
       data['customer_name'],
       fallback: _string(data['company_name']),
     );
+    final legacyStatus = _mapOrderStatus(_string(data['status']));
 
     return Order(
       id: id,
       customer: customerName,
       productSummary: _productSummary(items),
       amount: totalAmount + deliveryFee,
-      status: _mapOrderStatus(_string(data['status'])),
+      status: legacyStatus,
       date: _dateOnlyText(
         _string(data['creation'], fallback: _string(data['modified'])),
       ),
       progress: _mapOrderProgress(_string(data['status'])),
       paymentMethod: _mapPaymentMethod(_string(payment['payment_method'])),
+      orderStatus: _mapOperationalOrderStatus(
+        _string(data['order_status']),
+        legacyStatus,
+      ),
+      productionStatus: _mapProductionFlowStatus(
+        _string(data['production_status']),
+        legacyStatus,
+      ),
+      packingStatus: _mapPackingStatus(
+        _string(data['packing_status']),
+        legacyStatus,
+      ),
+      deliveryStatus: _mapDeliveryFlowStatus(
+        _string(data['delivery_status']),
+        legacyStatus,
+      ),
+      paymentStatus: _mapOrderPaymentFlowStatus(
+        _string(data['payment_status']),
+        legacyStatus,
+        _number(data['deposit_amount']),
+        _number(data['remaining_amount']),
+      ),
+      accountingStatus: _mapAccountingFlowStatus(
+        _string(data['accounting_status']),
+        _string(data['erpnext_sales_order']),
+        _nullableInt(data['erpnext_sales_invoice_docstatus']),
+        _nullableInt(data['erpnext_payment_entry_docstatus']),
+      ),
+      priority: _mapOrderPriority(_string(data['priority'])),
+      scheduledAt: _nullableDateTime(_string(data['scheduled_at'])),
+      pickupTimeOverride: _parseTimeOfDay(_string(data['pickup_time'])),
+      deliveryWindowStart: _nullableDateTime(
+        _string(data['delivery_window_start']),
+      ),
+      deliveryWindowEnd: _nullableDateTime(
+        _string(data['delivery_window_end']),
+      ),
       customerPhone: _string(data['customer_phone']),
       customerType: _string(data['customer_type']) == 'Company'
           ? CustomerType.company
@@ -1271,6 +1330,15 @@ class ErpnextService implements AuthService {
           DateTime.tryParse(_string(data['created_at'])) ?? DateTime.now(),
       isRead: _asBool(data['is_read']),
       type: _mapNotificationType(_string(data['notification_type'])),
+    );
+  }
+
+  ExceptionReason _mapExceptionReason(Map<String, dynamic> data) {
+    return ExceptionReason(
+      code: _string(data['code']),
+      category: _mapExceptionReasonCategory(_string(data['category'])),
+      label: _string(data['label']),
+      description: _string(data['description']),
     );
   }
 
@@ -1631,6 +1699,34 @@ class ErpnextService implements AuthService {
     }
   }
 
+  ExceptionReasonCategory _mapExceptionReasonCategory(String value) {
+    switch (value) {
+      case 'delivery':
+        return ExceptionReasonCategory.delivery;
+      case 'payment':
+        return ExceptionReasonCategory.payment;
+      case 'customer':
+        return ExceptionReasonCategory.customer;
+      case 'production':
+      default:
+        return ExceptionReasonCategory.production;
+    }
+  }
+
+  OrderPriority _mapOrderPriority(String value) {
+    switch (value.toLowerCase()) {
+      case 'urgent':
+        return OrderPriority.urgent;
+      case 'vip':
+        return OrderPriority.vip;
+      case 'scheduled':
+        return OrderPriority.scheduled;
+      case 'normal':
+      default:
+        return OrderPriority.normal;
+    }
+  }
+
   CashClosureOwnerType _mapCollectorType(String value) {
     return value == 'driver'
         ? CashClosureOwnerType.driver
@@ -1857,6 +1953,315 @@ class ErpnextService implements AuthService {
     }
   }
 
+  OperationalOrderStatus _mapOperationalOrderStatus(
+    String value,
+    OrderStatus legacyStatus,
+  ) {
+    if (value.isEmpty ||
+        (value == 'draft' && legacyStatus != OrderStatus.draft)) {
+      return _operationalStatusFromLegacy(legacyStatus);
+    }
+    switch (value) {
+      case 'pending_approval':
+        return OperationalOrderStatus.pendingApproval;
+      case 'approved':
+        return OperationalOrderStatus.approved;
+      case 'in_fulfillment':
+        return OperationalOrderStatus.inFulfillment;
+      case 'ready':
+        return OperationalOrderStatus.ready;
+      case 'delivered':
+        return OperationalOrderStatus.delivered;
+      case 'completed':
+        return OperationalOrderStatus.completed;
+      case 'cancelled':
+        return OperationalOrderStatus.cancelled;
+      case 'rejected':
+        return OperationalOrderStatus.rejected;
+      case 'returned_for_edit':
+        return OperationalOrderStatus.returnedForEdit;
+      case 'draft':
+      default:
+        return OperationalOrderStatus.draft;
+    }
+  }
+
+  OperationalOrderStatus _operationalStatusFromLegacy(OrderStatus status) {
+    switch (status) {
+      case OrderStatus.draft:
+        return OperationalOrderStatus.draft;
+      case OrderStatus.pendingSupervisorApproval:
+      case OrderStatus.pending:
+        return OperationalOrderStatus.pendingApproval;
+      case OrderStatus.sentToDistribution:
+      case OrderStatus.approved:
+        return OperationalOrderStatus.approved;
+      case OrderStatus.sentToProduction:
+      case OrderStatus.inProduction:
+      case OrderStatus.productionCompleted:
+      case OrderStatus.deliveryFailed:
+        return OperationalOrderStatus.inFulfillment;
+      case OrderStatus.ready:
+      case OrderStatus.readyForPickup:
+      case OrderStatus.readyForDelivery:
+      case OrderStatus.assignedToDriver:
+      case OrderStatus.driverPickedUp:
+      case OrderStatus.outForDelivery:
+        return OperationalOrderStatus.ready;
+      case OrderStatus.delivered:
+        return OperationalOrderStatus.delivered;
+      case OrderStatus.rejected:
+        return OperationalOrderStatus.rejected;
+      case OrderStatus.returnedForEdit:
+        return OperationalOrderStatus.returnedForEdit;
+      case OrderStatus.cancelled:
+        return OperationalOrderStatus.cancelled;
+    }
+  }
+
+  ProductionFlowStatus _mapProductionFlowStatus(
+    String value,
+    OrderStatus legacyStatus,
+  ) {
+    if (value.isEmpty ||
+        (value == 'not_started' &&
+            legacyStatus != OrderStatus.draft &&
+            legacyStatus != OrderStatus.pendingSupervisorApproval &&
+            legacyStatus != OrderStatus.pending)) {
+      return _productionStatusFromLegacy(legacyStatus);
+    }
+    switch (value) {
+      case 'split_by_department':
+        return ProductionFlowStatus.splitByDepartment;
+      case 'department_work_orders_created':
+        return ProductionFlowStatus.departmentWorkOrdersCreated;
+      case 'in_production':
+        return ProductionFlowStatus.inProduction;
+      case 'partially_ready':
+        return ProductionFlowStatus.partiallyReady;
+      case 'ready':
+        return ProductionFlowStatus.ready;
+      case 'delayed':
+        return ProductionFlowStatus.delayed;
+      case 'rejected':
+        return ProductionFlowStatus.rejected;
+      case 'not_started':
+      default:
+        return ProductionFlowStatus.notStarted;
+    }
+  }
+
+  ProductionFlowStatus _productionStatusFromLegacy(OrderStatus status) {
+    switch (status) {
+      case OrderStatus.sentToProduction:
+        return ProductionFlowStatus.splitByDepartment;
+      case OrderStatus.inProduction:
+        return ProductionFlowStatus.inProduction;
+      case OrderStatus.productionCompleted:
+        return ProductionFlowStatus.partiallyReady;
+      case OrderStatus.ready:
+      case OrderStatus.readyForPickup:
+      case OrderStatus.readyForDelivery:
+      case OrderStatus.assignedToDriver:
+      case OrderStatus.driverPickedUp:
+      case OrderStatus.outForDelivery:
+      case OrderStatus.delivered:
+        return ProductionFlowStatus.ready;
+      case OrderStatus.deliveryFailed:
+        return ProductionFlowStatus.ready;
+      case OrderStatus.rejected:
+        return ProductionFlowStatus.rejected;
+      default:
+        return ProductionFlowStatus.notStarted;
+    }
+  }
+
+  PackingStatus _mapPackingStatus(String value, OrderStatus legacyStatus) {
+    if (value.isEmpty ||
+        (value == 'waiting' &&
+            (legacyStatus == OrderStatus.readyForPickup ||
+                legacyStatus == OrderStatus.readyForDelivery ||
+                legacyStatus == OrderStatus.delivered))) {
+      return _packingStatusFromLegacy(legacyStatus);
+    }
+    switch (value) {
+      case 'not_required':
+        return PackingStatus.notRequired;
+      case 'ready_for_packing':
+        return PackingStatus.readyForPacking;
+      case 'packed':
+        return PackingStatus.packed;
+      case 'ready':
+        return PackingStatus.ready;
+      case 'waiting':
+      default:
+        return PackingStatus.waiting;
+    }
+  }
+
+  PackingStatus _packingStatusFromLegacy(OrderStatus status) {
+    switch (status) {
+      case OrderStatus.ready:
+      case OrderStatus.readyForPickup:
+      case OrderStatus.readyForDelivery:
+      case OrderStatus.assignedToDriver:
+      case OrderStatus.driverPickedUp:
+      case OrderStatus.outForDelivery:
+      case OrderStatus.delivered:
+        return PackingStatus.ready;
+      default:
+        return PackingStatus.waiting;
+    }
+  }
+
+  DeliveryFlowStatus _mapDeliveryFlowStatus(
+    String value,
+    OrderStatus legacyStatus,
+  ) {
+    if (value.isEmpty ||
+        (value == 'not_required' &&
+            legacyStatus != OrderStatus.draft &&
+            legacyStatus != OrderStatus.pendingSupervisorApproval &&
+            legacyStatus != OrderStatus.pending)) {
+      return _deliveryStatusFromLegacy(legacyStatus);
+    }
+    switch (value) {
+      case 'waiting_batch':
+        return DeliveryFlowStatus.waitingBatch;
+      case 'added_to_delivery_batch':
+        return DeliveryFlowStatus.addedToDeliveryBatch;
+      case 'assigned_to_driver':
+        return DeliveryFlowStatus.assignedToDriver;
+      case 'picked_up':
+        return DeliveryFlowStatus.pickedUp;
+      case 'out_for_delivery':
+        return DeliveryFlowStatus.outForDelivery;
+      case 'delivered':
+        return DeliveryFlowStatus.delivered;
+      case 'partially_delivered':
+        return DeliveryFlowStatus.partiallyDelivered;
+      case 'returned':
+        return DeliveryFlowStatus.returned;
+      case 'not_required':
+      default:
+        return DeliveryFlowStatus.notRequired;
+    }
+  }
+
+  DeliveryFlowStatus _deliveryStatusFromLegacy(OrderStatus status) {
+    switch (status) {
+      case OrderStatus.readyForDelivery:
+        return DeliveryFlowStatus.waitingBatch;
+      case OrderStatus.assignedToDriver:
+        return DeliveryFlowStatus.assignedToDriver;
+      case OrderStatus.driverPickedUp:
+        return DeliveryFlowStatus.pickedUp;
+      case OrderStatus.outForDelivery:
+        return DeliveryFlowStatus.outForDelivery;
+      case OrderStatus.delivered:
+        return DeliveryFlowStatus.delivered;
+      case OrderStatus.deliveryFailed:
+        return DeliveryFlowStatus.returned;
+      default:
+        return DeliveryFlowStatus.notRequired;
+    }
+  }
+
+  OrderPaymentFlowStatus _mapOrderPaymentFlowStatus(
+    String value,
+    OrderStatus legacyStatus,
+    num deposit,
+    num remaining,
+  ) {
+    if (value.isEmpty ||
+        (value == 'unpaid' && (deposit > 0 || remaining <= 0))) {
+      return _paymentFlowStatusFromAmounts(legacyStatus, deposit, remaining);
+    }
+    switch (value) {
+      case 'partially_paid':
+        return OrderPaymentFlowStatus.partiallyPaid;
+      case 'paid':
+        return OrderPaymentFlowStatus.paid;
+      case 'cash_pending':
+        return OrderPaymentFlowStatus.cashPending;
+      case 'cash_closed':
+        return OrderPaymentFlowStatus.cashClosed;
+      case 'refunded':
+        return OrderPaymentFlowStatus.refunded;
+      case 'unpaid':
+      default:
+        return OrderPaymentFlowStatus.unpaid;
+    }
+  }
+
+  OrderPaymentFlowStatus _paymentFlowStatusFromAmounts(
+    OrderStatus status,
+    num deposit,
+    num remaining,
+  ) {
+    if (remaining <= 0) return OrderPaymentFlowStatus.paid;
+    if (deposit > 0) return OrderPaymentFlowStatus.partiallyPaid;
+    if (status == OrderStatus.cancelled) return OrderPaymentFlowStatus.refunded;
+    return OrderPaymentFlowStatus.unpaid;
+  }
+
+  AccountingFlowStatus _mapAccountingFlowStatus(
+    String value,
+    String salesOrder,
+    int? salesInvoiceDocstatus,
+    int? paymentEntryDocstatus,
+  ) {
+    if (value.isEmpty ||
+        (value == 'not_posted' &&
+            (salesOrder.isNotEmpty ||
+                salesInvoiceDocstatus != null ||
+                paymentEntryDocstatus != null))) {
+      return _accountingStatusFromDocs(
+        salesOrder,
+        salesInvoiceDocstatus,
+        paymentEntryDocstatus,
+      );
+    }
+    switch (value) {
+      case 'sales_order_created':
+        return AccountingFlowStatus.salesOrderCreated;
+      case 'draft_invoice_created':
+        return AccountingFlowStatus.draftInvoiceCreated;
+      case 'invoice_submitted':
+        return AccountingFlowStatus.invoiceSubmitted;
+      case 'payment_submitted':
+        return AccountingFlowStatus.paymentSubmitted;
+      case 'accounting_posted':
+        return AccountingFlowStatus.accountingPosted;
+      case 'not_posted':
+      default:
+        return AccountingFlowStatus.notPosted;
+    }
+  }
+
+  AccountingFlowStatus _accountingStatusFromDocs(
+    String salesOrder,
+    int? salesInvoiceDocstatus,
+    int? paymentEntryDocstatus,
+  ) {
+    if (salesInvoiceDocstatus == 1 && paymentEntryDocstatus == 1) {
+      return AccountingFlowStatus.accountingPosted;
+    }
+    if (paymentEntryDocstatus == 1) {
+      return AccountingFlowStatus.paymentSubmitted;
+    }
+    if (salesInvoiceDocstatus == 1) {
+      return AccountingFlowStatus.invoiceSubmitted;
+    }
+    if (salesInvoiceDocstatus == 0) {
+      return AccountingFlowStatus.draftInvoiceCreated;
+    }
+    if (salesOrder.isNotEmpty) {
+      return AccountingFlowStatus.salesOrderCreated;
+    }
+    return AccountingFlowStatus.notPosted;
+  }
+
   int _mapOrderProgress(String status) {
     switch (_mapOrderStatus(status)) {
       case OrderStatus.draft:
@@ -1960,6 +2365,10 @@ class ErpnextService implements AuthService {
   String? _timeKey(TimeOfDay? time) {
     if (time == null) return null;
     return '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}:00';
+  }
+
+  String? _dateTimeKey(DateTime? value) {
+    return value?.toIso8601String();
   }
 
   TimeOfDay? _parseTimeOfDay(String value) {

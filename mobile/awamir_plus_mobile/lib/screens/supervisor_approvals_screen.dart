@@ -6,6 +6,7 @@ import '../core/theme/app_theme.dart';
 import '../core/utils/formatters.dart';
 import '../models/app_models.dart';
 import '../widgets/app_header.dart';
+import '../widgets/reason_input_dialog.dart';
 import '../widgets/section_header.dart';
 import '../widgets/state_views.dart';
 import '../widgets/status_badge.dart';
@@ -150,6 +151,7 @@ class _SupervisorOrderDetailScreenState
                   rows: [
                     ('تفاصيل الطلب', _order.details),
                     ('ملاحظات العميل', _order.customerNotes),
+                    ('الأولوية', _order.priority.label),
                     ('تاريخ الاستلام', _order.pickupDateText),
                     ('وقت الاستلام', _order.pickupTimeText),
                   ],
@@ -213,6 +215,12 @@ class _SupervisorOrderDetailScreenState
           title: 'رفض الطلب',
           label: 'سبب الرفض',
           emptyMessage: 'سبب الرفض مطلوب',
+          suggestions: const [
+            'بيانات العميل غير مكتملة',
+            'العربون غير كاف',
+            'الوقت المطلوب غير متاح',
+            'الصنف غير متوفر',
+          ],
         );
         if (reason == null) return;
         final updated = await widget.controller.rejectOrder(_order.id, reason);
@@ -223,6 +231,12 @@ class _SupervisorOrderDetailScreenState
           title: 'إرجاع للتعديل',
           label: 'ملاحظة التعديل',
           emptyMessage: 'ملاحظة التعديل مطلوبة',
+          suggestions: const [
+            'تعديل تاريخ أو وقت الاستلام',
+            'تعديل المنتجات أو الكميات',
+            'استكمال بيانات العميل',
+            'توضيح تفاصيل الطلب',
+          ],
         );
         if (notes == null) return;
         final updated = await widget.controller.returnOrderForEdit(
@@ -281,50 +295,17 @@ class _SupervisorOrderDetailScreenState
     required String title,
     required String label,
     required String emptyMessage,
+    List<String> suggestions = const [],
   }) async {
-    final controller = TextEditingController();
-    String? errorText;
-
-    final result = await showDialog<String>(
+    return showDialog<String>(
       context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              title: Text(title),
-              content: TextField(
-                controller: controller,
-                maxLines: 4,
-                decoration: InputDecoration(
-                  labelText: label,
-                  errorText: errorText,
-                  alignLabelWithHint: true,
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('إلغاء'),
-                ),
-                ElevatedButton(
-                  onPressed: () {
-                    final value = controller.text.trim();
-                    if (value.isEmpty) {
-                      setDialogState(() => errorText = emptyMessage);
-                      return;
-                    }
-                    Navigator.pop(context, value);
-                  },
-                  child: const Text('تأكيد'),
-                ),
-              ],
-            );
-          },
-        );
-      },
+      builder: (_) => ReasonInputDialog(
+        title: title,
+        label: label,
+        emptyMessage: emptyMessage,
+        suggestions: suggestions,
+      ),
     );
-    controller.dispose();
-    return result;
   }
 }
 

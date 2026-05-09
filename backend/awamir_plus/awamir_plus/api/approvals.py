@@ -12,7 +12,7 @@ from awamir_plus.constants import (
     PERMISSION_ORDER_VIEW_BRANCH,
 )
 from awamir_plus.permissions import get_user_branch, is_awamir_admin, require_branch_scope, require_permissions
-from awamir_plus.utils import assert_required, create_notification, get_pagination, get_users_with_role, make_audit_log, make_status_log, now, run_idempotent
+from awamir_plus.utils import apply_order_flow_statuses, assert_required, create_notification, get_awamir_settings, get_pagination, get_users_with_role, make_audit_log, make_status_log, now, run_idempotent
 
 
 @frappe.whitelist()
@@ -52,8 +52,10 @@ def approve_order(order, idempotency_key=None):
         doc.status = ORDER_STATUS_SENT_TO_DISTRIBUTION
         doc.approved_by = frappe.session.user
         doc.approved_at = now()
+        apply_order_flow_statuses(doc)
         doc.save(ignore_permissions=True)
         make_status_log(doc.name, old_status, doc.status, _("Approved by supervisor."))
+        _maybe_create_sales_order_on_approval(doc)
 
         create_notification(doc.created_by_user, _("Order Approved"), _("Order {0} approved and sent to distribution.").format(doc.order_number), doc.name, "order_approved")
         for user in get_users_with_role("Awamir Distribution Manager"):
@@ -83,6 +85,7 @@ def reject_order(order, reason, idempotency_key=None):
             frappe.throw(_("Only orders pending supervisor approval can be rejected."))
         old_status = doc.status
         doc.status = ORDER_STATUS_REJECTED
+        apply_order_flow_statuses(doc)
         doc.save(ignore_permissions=True)
         make_status_log(doc.name, old_status, doc.status, reason)
         create_notification(doc.created_by_user, _("Order Rejected"), _("Order {0} was rejected: {1}").format(doc.order_number, reason), doc.name, "order_rejected")
@@ -111,6 +114,7 @@ def return_order_for_edit(order, notes=None, note=None, idempotency_key=None):
             frappe.throw(_("Only orders pending supervisor approval can be returned for edit."))
         old_status = doc.status
         doc.status = ORDER_STATUS_RETURNED
+        apply_order_flow_statuses(doc)
         doc.save(ignore_permissions=True)
         make_status_log(doc.name, old_status, doc.status, notes)
         create_notification(doc.created_by_user, _("Order Returned"), _("Order {0} returned for edit.").format(doc.order_number), doc.name, "order_returned")
@@ -131,3 +135,18 @@ def _approval_response(doc, message):
         "message": message,
         "order": get_order_detail(doc.name),
     }
+
+
+def _maybe_create_sales_order_on_approval(doc):
+    settings = get_awamir_settings()
+    if not frappe.utils.cint(settings.create_sales_order_on_approval):
+        return
+    try:
+        from awamir_plus.services.accounting import create_sales_order_for_order
+
+        create_sales_order_for_order(doc.name)
+    except Exception as exc:
+        doc.reload()
+        doc.erp_sync_error = _("تعذر إنشاء Sales Order تلقائياً عند الموافقة: {0}").format(str(exc))
+        doc.save(ignore_permissions=True)
+        make_status_log(doc.name, doc.status, doc.status, doc.erp_sync_error)

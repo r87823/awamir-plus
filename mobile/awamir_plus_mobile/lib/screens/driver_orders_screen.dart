@@ -8,6 +8,7 @@ import '../models/app_models.dart';
 import '../widgets/app_header.dart';
 import '../widgets/delivery_proof_dialog.dart';
 import '../widgets/payment_method_selector.dart';
+import '../widgets/reason_input_dialog.dart';
 import '../widgets/section_header.dart';
 import '../widgets/state_views.dart';
 import '../widgets/status_badge.dart';
@@ -281,10 +282,16 @@ class _DriverOrderDetailScreenState extends State<DriverOrderDetailScreen> {
   Future<void> _markFailed() async {
     final reason = await showDialog<String>(
       context: context,
-      builder: (_) => const _TextInputDialog(
+      builder: (_) => const ReasonInputDialog(
         title: 'تعذر التسليم',
         label: 'سبب تعذر التسليم',
-        requiredInput: true,
+        emptyMessage: 'سبب تعذر التسليم مطلوب',
+        suggestions: [
+          'تعذر الوصول للعميل',
+          'العميل غير موجود في الموقع',
+          'مشكلة لدى السائق',
+          'تلف في الطلب',
+        ],
       ),
     );
     if (reason == null) return;
@@ -530,64 +537,6 @@ class _PaymentDialogState extends State<_PaymentDialog> {
                 receiptPath: _receiptController.text.trim(),
               ),
             );
-          },
-          child: const Text('حفظ'),
-        ),
-      ],
-    );
-  }
-}
-
-class _TextInputDialog extends StatefulWidget {
-  const _TextInputDialog({
-    required this.title,
-    required this.label,
-    required this.requiredInput,
-  });
-
-  final String title;
-  final String label;
-  final bool requiredInput;
-
-  @override
-  State<_TextInputDialog> createState() => _TextInputDialogState();
-}
-
-class _TextInputDialogState extends State<_TextInputDialog> {
-  final _controller = TextEditingController();
-  String _error = '';
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text(widget.title),
-      content: TextField(
-        controller: _controller,
-        maxLines: 3,
-        decoration: InputDecoration(
-          labelText: widget.label,
-          errorText: _error.isEmpty ? null : _error,
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('إلغاء'),
-        ),
-        ElevatedButton(
-          onPressed: () {
-            final value = _controller.text.trim();
-            if (widget.requiredInput && value.isEmpty) {
-              setState(() => _error = 'هذا الحقل مطلوب');
-              return;
-            }
-            Navigator.pop(context, value);
           },
           child: const Text('حفظ'),
         ),

@@ -127,6 +127,7 @@ class _PickupOrderDetailScreenState extends State<PickupOrderDetailScreen> {
                     ('الجوال', _order.customerPhone),
                     ('المنتجات', _order.productSummary),
                     ('فرع الاستلام', _order.pickupBranch),
+                    ('الأولوية', _order.priority.label),
                     ('تاريخ الاستلام', _order.pickupDateText),
                     ('وقت الاستلام', _order.pickupTimeText),
                     ('حالة الدفع', _paymentState(_order)),

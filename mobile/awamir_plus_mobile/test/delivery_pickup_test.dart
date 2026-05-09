@@ -147,6 +147,17 @@ void main() {
     expect(assigned.status, DeliveryBatchStatus.assigned);
     expect(assigned.driverId, 'DRV-001');
     expect(assigned.driverName, isNotEmpty);
+    expect(
+      assigned.orders.every(
+        (order) => order.status == OrderStatus.assignedToDriver,
+      ),
+      isTrue,
+    );
+
+    final orders = await repository.getOrders();
+    final order = orders.firstWhere((item) => item.id == 'ORD-0022');
+    expect(order.status, OrderStatus.assignedToDriver);
+    expect(order.assignedDriverId, 'DRV-001');
   });
 
   test('لا يمكن إسناد الطلب بدون اختيار سائق', () async {
@@ -182,6 +193,18 @@ void main() {
     expect(updated.assignedDriverId, 'DRV-001');
     expect(assignment, isNotNull);
     expect(assignment!.driverId, 'DRV-001');
+
+    final batches = await repository.getDeliveryBatches(
+      status: DeliveryBatchStatus.assigned,
+    );
+    expect(
+      batches.any(
+        (batch) =>
+            batch.driverId == 'DRV-001' &&
+            batch.orders.any((order) => order.orderId == 'ORD-0022'),
+      ),
+      isTrue,
+    );
   });
 
   test('السائق يرى فقط الطلبات المسندة له', () async {

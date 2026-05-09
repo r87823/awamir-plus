@@ -235,6 +235,11 @@ void main() {
     expect(orderData['customer_phone'], '0500000001');
     expect(orderData['deposit_amount'], 100);
     expect(orderData['payment_method'], 'Card');
+    expect(orderData['priority'], 'urgent');
+    expect(orderData['scheduled_at'], '2026-05-09T12:00:00.000');
+    expect(orderData['pickup_time'], '17:45:00');
+    expect(orderData['delivery_window_start'], '2026-05-10T17:00:00.000');
+    expect(orderData['delivery_window_end'], '2026-05-10T20:00:00.000');
     expect(items.single['item_code'], 'AWAMIR-KUNAFA');
   });
 
@@ -364,6 +369,90 @@ void main() {
     expect(sentBody['order'], 'ORD-2026-00013');
     expect(sentBody.containsKey('order_data'), isFalse);
     expect(order.status, OrderStatus.pendingSupervisorApproval);
+  });
+
+  test('Order mapping يقرأ حالات التشغيل المفصولة من API الحقيقي', () async {
+    final service = ErpnextService(
+      apiClient: ApiClient(
+        baseUrl: 'https://example.com',
+        cookieStore: _MemoryCookieStore(),
+        httpClient: MockClient(
+          (_) async => _jsonResponse({
+            'message': [
+              _orderPayload(
+                status: 'Sent To Production',
+                orderStatus: 'in_fulfillment',
+                productionStatus: 'department_work_orders_created',
+                packingStatus: 'waiting',
+                deliveryStatus: 'not_required',
+                paymentFlowStatus: 'partially_paid',
+                accountingStatus: 'sales_order_created',
+                priority: 'vip',
+                scheduledAt: '2026-05-09T12:00:00.000',
+                pickupTime: '17:45:00',
+                deliveryWindowStart: '2026-05-10T17:00:00.000',
+                deliveryWindowEnd: '2026-05-10T20:00:00.000',
+                salesOrder: 'SO-2026-00001',
+              ),
+            ],
+          }),
+        ),
+      ),
+    );
+
+    final orders = await service.getOrders();
+    final order = orders.single;
+
+    expect(order.status, OrderStatus.sentToProduction);
+    expect(order.orderStatus, OperationalOrderStatus.inFulfillment);
+    expect(
+      order.productionStatus,
+      ProductionFlowStatus.departmentWorkOrdersCreated,
+    );
+    expect(order.deliveryStatus, DeliveryFlowStatus.notRequired);
+    expect(order.paymentStatus, OrderPaymentFlowStatus.partiallyPaid);
+    expect(order.accountingStatus, AccountingFlowStatus.salesOrderCreated);
+    expect(order.priority, OrderPriority.vip);
+    expect(order.scheduledAt, DateTime(2026, 5, 9, 12));
+    expect(order.pickupTimeOverride, const TimeOfDay(hour: 17, minute: 45));
+    expect(order.deliveryWindowStart, DateTime(2026, 5, 10, 17));
+    expect(order.deliveryWindowEnd, DateTime(2026, 5, 10, 20));
+  });
+
+  test('Exception reasons mapping يقرأ أسباب الاستثناء من API', () async {
+    Uri? sentUrl;
+    final service = ErpnextService(
+      apiClient: ApiClient(
+        baseUrl: 'https://example.com',
+        cookieStore: _MemoryCookieStore(),
+        httpClient: MockClient((request) async {
+          sentUrl = request.url;
+          return _jsonResponse({
+            'message': [
+              {
+                'category': 'delivery',
+                'code': 'customer_not_available',
+                'label': 'تعذر الوصول للعميل',
+                'description': 'لا يرد العميل على الاتصال.',
+              },
+            ],
+          });
+        }),
+      ),
+    );
+
+    final reasons = await service.getExceptionReasons(
+      category: ExceptionReasonCategory.delivery,
+    );
+
+    expect(
+      sentUrl?.path,
+      endsWith('/awamir_plus.api.exceptions.get_exception_reasons'),
+    );
+    expect(sentUrl?.queryParameters['category'], 'delivery');
+    expect(reasons.single.category, ExceptionReasonCategory.delivery);
+    expect(reasons.single.code, 'customer_not_available');
+    expect(reasons.single.label, 'تعذر الوصول للعميل');
   });
 
   test('فشل create order لا يمسح بيانات نموذج الطلب', () async {
@@ -1748,6 +1837,11 @@ CreateOrderRequest _createOrderRequest() {
     ..customerNotes = 'ملاحظات العميل'
     ..pickupDate = DateTime(2026, 5, 10)
     ..pickupTime = const TimeOfDay(hour: 18, minute: 30)
+    ..priority = OrderPriority.urgent
+    ..scheduledAt = DateTime(2026, 5, 9, 12)
+    ..pickupTimeOverride = const TimeOfDay(hour: 17, minute: 45)
+    ..deliveryWindowStart = DateTime(2026, 5, 10, 17)
+    ..deliveryWindowEnd = DateTime(2026, 5, 10, 20)
     ..depositAmount = 100
     ..paymentMethod = PaymentMethod.card
     ..transactionReference = 'TX-100';
@@ -1768,6 +1862,17 @@ CreateOrderRequest _createOrderRequest() {
 
 Map<String, dynamic> _orderPayload({
   required String status,
+  String? orderStatus,
+  String? productionStatus,
+  String? packingStatus,
+  String? deliveryStatus,
+  String? paymentFlowStatus,
+  String? accountingStatus,
+  String priority = 'normal',
+  String? scheduledAt,
+  String? pickupTime,
+  String? deliveryWindowStart,
+  String? deliveryWindowEnd,
   String productionDepartment = '',
   String assignedDriver = '',
   String salesOrder = '',
@@ -1779,7 +1884,7 @@ Map<String, dynamic> _orderPayload({
   String syncStatus = 'Not Synced',
   String syncError = '',
 }) {
-  return {
+  final payload = <String, dynamic>{
     'name': status == 'Draft' ? 'ORD-2026-00011' : 'ORD-2026-00012',
     'order_number': status == 'Draft' ? 'ORD-2026-00011' : 'ORD-2026-00012',
     'customer': 'عميل أوامر التجريبي',
@@ -1789,8 +1894,13 @@ Map<String, dynamic> _orderPayload({
     'created_branch': 'فرع المروج',
     'pickup_branch': 'فرع المروج',
     'delivery_type': 'Pickup',
+    'priority': priority,
+    'scheduled_at': scheduledAt,
     'required_date': '2026-05-10',
     'required_time': '18:30:00',
+    'pickup_time': pickupTime,
+    'delivery_window_start': deliveryWindowStart,
+    'delivery_window_end': deliveryWindowEnd,
     'order_notes': 'تفاصيل طلب اختبار',
     'customer_notes': 'ملاحظات العميل',
     'status': status,
@@ -1832,6 +1942,15 @@ Map<String, dynamic> _orderPayload({
       {'payment_method': 'Card'},
     ],
   };
+  if (orderStatus != null) payload['order_status'] = orderStatus;
+  if (productionStatus != null) {
+    payload['production_status'] = productionStatus;
+  }
+  if (packingStatus != null) payload['packing_status'] = packingStatus;
+  if (deliveryStatus != null) payload['delivery_status'] = deliveryStatus;
+  if (paymentFlowStatus != null) payload['payment_status'] = paymentFlowStatus;
+  if (accountingStatus != null) payload['accounting_status'] = accountingStatus;
+  return payload;
 }
 
 Map<String, dynamic> _departmentWorkOrderPayload({String status = 'pending'}) {

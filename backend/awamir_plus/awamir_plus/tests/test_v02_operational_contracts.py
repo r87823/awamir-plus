@@ -108,6 +108,25 @@ class TestV02OperationalContracts(unittest.TestCase):
         ]:
             self.assertIn(fieldname, _fieldnames(assignment))
 
+    def test_sensitive_operational_doctypes_support_soft_cancellation(self):
+        for folder in [
+            "awamir_order_request",
+            "awamir_delivery_batch",
+            "awamir_department_work_order",
+            "awamir_order_payment",
+            "awamir_daily_cash_closure",
+            "awamir_delivery_assignment",
+        ]:
+            with self.subTest(folder=folder):
+                doctype = _load_doctype(folder)
+                for fieldname in [
+                    "is_cancelled",
+                    "cancelled_at",
+                    "cancelled_by",
+                    "cancellation_reason",
+                ]:
+                    self.assertIn(fieldname, _fieldnames(doctype))
+
     def test_audit_and_idempotency_doctypes_exist(self):
         audit = _load_doctype("awamir_audit_log")
         idempotency = _load_doctype("awamir_idempotency_key")

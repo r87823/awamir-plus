@@ -150,6 +150,141 @@ def serialize_doc(doc):
     return doc
 
 
+def derive_order_flow_statuses(
+    status,
+    delivery_type=None,
+    deposit_amount=0,
+    remaining_amount=0,
+    erpnext_sales_order=None,
+    erpnext_sales_invoice=None,
+    erp_sync_status=None,
+):
+    delivery_type = delivery_type or "Pickup"
+    order_status = {
+        "Draft": "draft",
+        "Pending Supervisor Approval": "pending_approval",
+        "Returned For Edit": "returned_for_edit",
+        "Rejected": "rejected",
+        "Sent To Distribution": "approved",
+        "Sent To Production": "in_fulfillment",
+        "In Production": "in_fulfillment",
+        "Production Completed": "in_fulfillment",
+        "Ready For Pickup": "ready",
+        "Ready For Delivery": "ready",
+        "Assigned To Driver": "ready",
+        "Driver Picked Up": "ready",
+        "Out For Delivery": "ready",
+        "Delivered": "delivered",
+        "Delivery Failed": "in_fulfillment",
+        "Cancelled": "cancelled",
+    }.get(status, "draft")
+
+    production_status = {
+        "Sent To Production": "split_by_department",
+        "In Production": "in_production",
+        "Production Completed": "partially_ready",
+        "Ready For Pickup": "ready",
+        "Ready For Delivery": "ready",
+        "Assigned To Driver": "ready",
+        "Driver Picked Up": "ready",
+        "Out For Delivery": "ready",
+        "Delivered": "ready",
+        "Delivery Failed": "ready",
+        "Rejected": "rejected",
+    }.get(status, "not_started")
+
+    packing_status = {
+        "Ready For Pickup": "ready",
+        "Ready For Delivery": "ready",
+        "Assigned To Driver": "ready",
+        "Driver Picked Up": "ready",
+        "Out For Delivery": "ready",
+        "Delivered": "ready",
+    }.get(status, "waiting")
+
+    if delivery_type == "Pickup":
+        delivery_status = "not_required"
+    else:
+        delivery_status = {
+            "Ready For Delivery": "waiting_batch",
+            "Assigned To Driver": "assigned_to_driver",
+            "Driver Picked Up": "picked_up",
+            "Out For Delivery": "out_for_delivery",
+            "Delivered": "delivered",
+            "Delivery Failed": "returned",
+        }.get(status, "not_required")
+
+    if to_float(remaining_amount) <= 0:
+        payment_status = "paid"
+    elif to_float(deposit_amount) > 0:
+        payment_status = "partially_paid"
+    else:
+        payment_status = "unpaid"
+
+    if erp_sync_status == "Synced":
+        accounting_status = "accounting_posted"
+    elif erpnext_sales_invoice:
+        accounting_status = "draft_invoice_created"
+    elif erpnext_sales_order:
+        accounting_status = "sales_order_created"
+    else:
+        accounting_status = "not_posted"
+
+    return {
+        "order_status": order_status,
+        "production_status": production_status,
+        "packing_status": packing_status,
+        "delivery_status": delivery_status,
+        "payment_status": payment_status,
+        "accounting_status": accounting_status,
+    }
+
+
+def apply_order_flow_statuses(doc):
+    values = derive_order_flow_statuses(
+        getattr(doc, "status", None),
+        delivery_type=getattr(doc, "delivery_type", None),
+        deposit_amount=getattr(doc, "deposit_amount", 0),
+        remaining_amount=getattr(doc, "remaining_amount", 0),
+        erpnext_sales_order=getattr(doc, "erpnext_sales_order", None),
+        erpnext_sales_invoice=getattr(doc, "erpnext_sales_invoice", None),
+        erp_sync_status=getattr(doc, "erp_sync_status", None),
+    )
+    preserve_values = {
+        "production_status": {
+            "department_work_orders_created",
+            "partially_ready",
+            "delayed",
+            "rejected",
+        },
+        "packing_status": {"ready_for_packing", "packed"},
+        "delivery_status": {"added_to_delivery_batch", "partially_delivered"},
+        "payment_status": {"cash_pending", "cash_closed", "refunded"},
+        "accounting_status": {
+            "draft_invoice_created",
+            "invoice_submitted",
+            "payment_submitted",
+            "accounting_posted",
+        },
+    }
+    baseline_values = {
+        "not_started",
+        "split_by_department",
+        "waiting",
+        "not_required",
+        "unpaid",
+        "not_posted",
+        "sales_order_created",
+    }
+    for fieldname, value in values.items():
+        if getattr(doc, "meta", None) and doc.meta.has_field(fieldname):
+            current = getattr(doc, fieldname, None)
+            if current in preserve_values.get(fieldname, set()) and value in baseline_values:
+                continue
+            doc.set(fieldname, value)
+    return doc
+
+
 def json_dumps(value):
     return json.dumps(value, ensure_ascii=False, default=str, sort_keys=True)
 
